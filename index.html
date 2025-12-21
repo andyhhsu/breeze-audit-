@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1428a0">
     <meta name="format-detection" content="telephone=no">
 
-    <title>三星門市稽核系統 (Auto-Scroll Restored)</title>
+    <title>三星門市稽核系統 (Fix Delete)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -31,15 +31,12 @@
         .samsung-blue { color: #1428a0; }
         .bg-samsung-blue { background-color: #1428a0; }
         .scale-in { animation: scaleIn 0.2s ease-out; }
-        
-        /* Pulse Animation for Loading Logo */
         .pulse-logo { animation: pulseLogo 1.5s infinite ease-in-out; }
         @keyframes pulseLogo { 
             0% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.1); opacity: 0.8; }
             100% { transform: scale(1); opacity: 1; }
         }
-        /* Dot Animation */
         .dots::after {
             content: '.';
             animation: dots 1.5s steps(5, end) infinite;
@@ -50,13 +47,10 @@
             60% { content: '...'; }
             80%, 100% { content: ''; }
         }
-
         @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .progress-bar { transition: width 0.3s ease-in-out; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* Smooth scrolling behavior */
         html { scroll-behavior: smooth; }
     </style>
 </head>
@@ -67,7 +61,7 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- Config Data ---
-        const YOUR_DEPLOY_ID = "AKfycbzlEHjQqW6Ym2J8vdoCX_4jrkCnj78vRugYHlm416c0-_DIjQpIILFByCY3Xf6Vnz_B";
+        const YOUR_DEPLOY_ID = "AKfycby9IvHukUvhttQ9QQgcsR_P572ZcF28akHgS1lHCq_6d7d1lSIHx2eZ3R-1AY4iPWmB";
         const DEFAULT_API_URL = `https://script.google.com/macros/s/${YOUR_DEPLOY_ID}/exec`;
         const MANAGER_PASSWORD = "5444";
 
@@ -100,7 +94,7 @@
             { id: 'i17', title: '電量問題', desc: '確認充電正常', category: '系統', isCritical: false },
         ];
 
-        // --- Helper: Robust Date Formatter ---
+        // --- Helper Functions ---
         const parseAndFormatDate = (input) => {
             if (!input) return '--/-- --:--';
             let dateObj;
@@ -160,7 +154,6 @@
 
         // --- Components ---
 
-        // Enhanced Loading Overlay
         const LoadingOverlay = ({ message }) => (
             <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center backdrop-blur-md animate-fade-in">
                 <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-[280px] w-full transform transition-all scale-in">
@@ -171,12 +164,37 @@
                     <h3 className="font-bold text-gray-800 text-lg mb-2">處理中<span className="dots"></span></h3>
                     <p className="text-gray-500 text-xs text-center leading-relaxed font-medium">
                         {message || '正在與 Google 雲端連線...'}
-                        <br/>
-                        <span className="text-[10px] text-gray-400 mt-1 block">請勿關閉視窗</span>
                     </p>
                 </div>
             </div>
         );
+
+        // New: Custom Confirm Modal (Replaces window.confirm)
+        const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center backdrop-blur-sm animate-fade-in px-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 scale-in">
+                        <h3 className="text-lg font-bold text-gray-800 mb-2">{title}</h3>
+                        <p className="text-gray-600 text-sm mb-6 leading-relaxed">{message}</p>
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={onCancel}
+                                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold active:bg-gray-50 transition"
+                            >
+                                取消
+                            </button>
+                            <button 
+                                onClick={onConfirm}
+                                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold shadow-lg shadow-red-200 active:bg-red-600 transition"
+                            >
+                                確認刪除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
 
         const LoginScreen = ({ onLogin, apiUrl, setApiUrl }) => {
             const [name, setName] = useState('');
@@ -227,7 +245,7 @@
                         <div className="text-center mb-8">
                             <div className="bg-samsung-blue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg">S</div>
                             <h1 className="text-2xl font-bold text-gray-800 tracking-tight">微風南山稽核系統</h1>
-                            <p className="text-gray-500 text-sm mt-2">Mobile Version 2.6 (Auto-Scroll)</p>
+                            <p className="text-gray-500 text-sm mt-2">Mobile Version 2.9 (Fix Delete)</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
@@ -375,7 +393,6 @@
                 localStorage.setItem(draftKey, JSON.stringify(draftData));
             }, [results, note, isDraftLoaded, currentUser.name, zone.id]);
 
-            // Auto-Scroll Logic Restored
             const handleToggle = (itemId, status) => {
                 setResults(prev => ({ ...prev, [itemId]: { ...prev[itemId], status } }));
 
@@ -383,7 +400,6 @@
                 if (currentIndex !== -1 && currentIndex < CHECK_ITEMS_TEMPLATE.length - 1) {
                     const nextNode = itemRefs.current[currentIndex + 1];
                     if (nextNode) {
-                        // 300ms delay for visual feedback
                         setTimeout(() => {
                             nextNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }, 300); 
@@ -586,7 +602,7 @@
             );
         };
 
-        const ManagerDashboard = ({ audits, allUsers, onReview, onOpenRedeem }) => {
+        const ManagerDashboard = ({ audits, allUsers, onReview, onOpenRedeem, onDelete }) => {
             const [tab, setTab] = useState('pending'); // pending, history, leaderboard
 
             const filteredAudits = useMemo(() => {
@@ -660,24 +676,33 @@
                     ) : (
                         <div className="space-y-4">
                             {filteredAudits.map(audit => (
-                                <div key={audit.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden active:scale-[0.99] transition-transform">
+                                <div key={audit.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden active:scale-[0.99] transition-transform relative">
                                     <div className="p-5">
                                         <div className="flex justify-between items-start mb-3">
                                             <div className="flex items-center gap-3">
                                                 <span className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center font-bold text-sm text-samsung-blue border border-blue-100">{audit.zoneId}</span>
                                                 <div>
                                                     <h3 className="font-bold text-gray-800 text-lg leading-tight">{audit.zoneName}</h3>
-                                                    {/* Updated Time Display */}
                                                     <p className="text-xs text-gray-400 mt-0.5 font-mono"><i className="fa-regular fa-clock mr-1"></i> {parseAndFormatDate(audit.timestamp)}</p>
                                                 </div>
                                             </div>
-                                            {audit.status === 'reviewed' ? (
-                                                <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${audit.penalty > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                                                    {audit.penalty > 0 ? `扣 ${audit.penalty} 點` : 'Pass'}
-                                                </span>
-                                            ) : (
-                                                <span className="text-xs bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-bold animate-pulse">待複查</span>
-                                            )}
+                                            <div className="flex flex-col items-end gap-2">
+                                                {audit.status === 'reviewed' ? (
+                                                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${audit.penalty > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                                                        {audit.penalty > 0 ? `扣 ${audit.penalty} 點` : 'Pass'}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-bold animate-pulse">待複查</span>
+                                                )}
+                                                
+                                                {/* Updated Delete Button - Larger Touch Area */}
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); onDelete(audit); }}
+                                                    className="w-10 h-10 flex items-center justify-center bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all border border-transparent hover:border-red-100 active:scale-95"
+                                                >
+                                                    <i className="fa-solid fa-trash-can"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div className="flex justify-between items-center pt-2 border-t border-gray-50 mt-2">
                                             <p className="text-sm font-medium text-gray-600"><i className="fa-regular fa-user mr-1.5"></i> {audit.staffName}</p>
@@ -829,6 +854,11 @@
             const [audits, setAudits] = useState([]);
             const [showRedeemPanel, setShowRedeemPanel] = useState(false);
             const [showSuccessModal, setShowSuccessModal] = useState(false);
+            
+            // New States for Confirmation Modal
+            const [showConfirmModal, setShowConfirmModal] = useState(false);
+            const [confirmAction, setConfirmAction] = useState(null); // { title, message, action }
+
             const [modalMsg, setModalMsg] = useState('');
             const [isLoading, setIsLoading] = useState(false);
             const [loadingMsg, setLoadingMsg] = useState('');
@@ -865,15 +895,33 @@
                 try {
                     const res = await callApi(apiUrl, 'login', { name, role });
                     setCurrentUser(res);
+                    
+                    // Stop loading here to let user in immediately (Optimistic UI)
+                    setView('dashboard');
+                    setIsLoading(false);
+
+                    // Fetch data in background
+                    fetchInitialData(res); 
+                } catch (e) {
+                    alert("登入失敗，請檢查網路或系統異常");
+                    setIsLoading(false);
+                }
+            };
+
+            const fetchInitialData = async (user) => {
+                try {
                     const userRes = await callApi(apiUrl, 'getAllUsers');
-                    if (userRes.users) setUsersData(userRes.users);
-                    if (role === 'manager') {
+                    if (userRes.users) {
+                        setUsersData(userRes.users);
+                        if (user && userRes.users[user.name]) {
+                            setCurrentUser(prev => ({ ...prev, points: userRes.users[user.name].points }));
+                        }
+                    }
+                    if (user && user.role === 'manager') {
                         const auditRes = await callApi(apiUrl, 'getAudits');
                         if (auditRes.audits) setAudits(auditRes.audits);
                     }
-                    setView('dashboard');
-                } catch (e) { alert("登入失敗，請檢查網路"); }
-                setIsLoading(false);
+                } catch (e) { console.error("Background fetch failed"); }
             };
 
             const handleLogout = () => {
@@ -882,6 +930,37 @@
                 setSelectedZone(null);
                 setSelectedAudit(null);
                 setAudits([]);
+            };
+
+            // Trigger Confirmation Modal instead of immediate action
+            const handleDeleteAudit = (audit) => {
+                setConfirmAction({
+                    title: "確認刪除",
+                    message: "您確定要刪除這筆稽核紀錄嗎？此動作無法復原。",
+                    action: async () => {
+                        setShowConfirmModal(false);
+                        setLoadingMsg('正在刪除紀錄...');
+                        setIsLoading(true);
+                        
+                        // Optimistic update
+                        setAudits(prev => prev.filter(a => a.id !== audit.id));
+
+                        try {
+                            const res = await callApi(apiUrl, 'deleteAudit', { auditId: audit.id });
+                            if (res.success) {
+                                setModalMsg('紀錄已刪除');
+                                setShowSuccessModal(true);
+                                setTimeout(() => setShowSuccessModal(false), 1000);
+                            } else {
+                                alert("刪除失敗");
+                            }
+                        } catch(e) { 
+                            alert("刪除失敗"); 
+                        }
+                        setIsLoading(false);
+                    }
+                });
+                setShowConfirmModal(true);
             };
 
             const handleAuditSubmit = async (auditData) => {
@@ -941,6 +1020,16 @@
             return (
                 <div className="min-h-screen pb-10 bg-gray-100 font-sans">
                     {isLoading && <LoadingOverlay message={loadingMsg} />}
+                    
+                    {/* Confirm Modal */}
+                    <ConfirmModal 
+                        isOpen={showConfirmModal}
+                        title={confirmAction?.title}
+                        message={confirmAction?.message}
+                        onConfirm={confirmAction?.action}
+                        onCancel={() => setShowConfirmModal(false)}
+                    />
+
                     {view === 'login' ? (
                         <LoginScreen onLogin={handleLogin} apiUrl={apiUrl} setApiUrl={setApiUrl} />
                     ) : (
@@ -950,7 +1039,7 @@
                             {currentUser.role === 'staff' && view === 'dashboard' && <ZoneSelector onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} />}
                             {currentUser.role === 'staff' && view === 'audit_form' && <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
                             
-                            {currentUser.role === 'manager' && view === 'dashboard' && <ManagerDashboard audits={audits} allUsers={usersData} onReview={(a) => { setSelectedAudit(a); setView('review_form'); }} onOpenRedeem={() => setShowRedeemPanel(true)} />}
+                            {currentUser.role === 'manager' && view === 'dashboard' && <ManagerDashboard audits={audits} allUsers={usersData} onReview={(a) => { setSelectedAudit(a); setView('review_form'); }} onOpenRedeem={() => setShowRedeemPanel(true)} onDelete={handleDeleteAudit} />}
                             {currentUser.role === 'manager' && view === 'review_form' && <ReviewForm audit={selectedAudit} onBack={() => setView('dashboard')} onSubmitReview={handleReviewSubmit} />}
 
                             {showRedeemPanel && <RedemptionPanel allUsers={usersData} onRedeem={handleRedeem} onClose={() => setShowRedeemPanel(false)} />}
