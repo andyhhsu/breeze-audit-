@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1428a0">
+    <meta name="format-detection" content="telephone=no">
+
+    <title>三星門市稽核系統 (Auto-Scroll Restored)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            overscroll-behavior-y: none;
+        }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        .mb-safe { margin-bottom: env(safe-area-inset-bottom); }
+        .samsung-blue { color: #1428a0; }
+        .bg-samsung-blue { background-color: #1428a0; }
+        .scale-in { animation: scaleIn 0.2s ease-out; }
+        
+        /* Pulse Animation for Loading Logo */
+        .pulse-logo { animation: pulseLogo 1.5s infinite ease-in-out; }
+        @keyframes pulseLogo { 
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        /* Dot Animation */
+        .dots::after {
+            content: '.';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
+        }
+
+        @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .progress-bar { transition: width 0.3s ease-in-out; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Smooth scrolling behavior */
+        html { scroll-behavior: smooth; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- Config Data ---
+        const YOUR_DEPLOY_ID = "AKfycbzlEHjQqW6Ym2J8vdoCX_4jrkCnj78vRugYHlm416c0-_DIjQpIILFByCY3Xf6Vnz_B";
+        const DEFAULT_API_URL = `https://script.google.com/macros/s/${YOUR_DEPLOY_ID}/exec`;
+        const MANAGER_PASSWORD = "5444";
+
+        const ZONES = [
+            { id: 'A', name: 'A 區', icon: 'fa-a' },
+            { id: 'B', name: 'B 區', icon: 'fa-b' },
+            { id: 'C', name: 'C 區', icon: 'fa-c' },
+            { id: 'D', name: 'D 區', icon: 'fa-d' },
+            { id: 'E', name: 'E 區', icon: 'fa-e' },
+            { id: 'F', name: 'F 區', icon: 'fa-f' },
+        ];
+
+        const CHECK_ITEMS_TEMPLATE = [
+            { id: 'i1', title: '展機髒污', desc: '機身是否有指紋或污漬', category: '清潔', isCritical: false },
+            { id: 'i2', title: '展座下黑色部分要擦', desc: '確認展座底部黑色區域無灰塵', category: '清潔', isCritical: false },
+            { id: 'i3', title: '桌面清潔', desc: '桌面無灰塵雜物', category: '清潔', isCritical: false },
+            { id: 'i4', title: '平板展座 (重點)', desc: '最容易被抓！確認防盜線收納', category: '規範', isCritical: true, requirePhoto: true },
+            { id: 'i5', title: '手錶正反面', desc: '確認手錶擺放方向正確', category: '規範', isCritical: false },
+            { id: 'i6', title: '配件間距小於 5cm', desc: '商品掛勾間距需符合規範', category: '規範', isCritical: true },
+            { id: 'i7', title: '價格牌是否合規範', desc: '位置與內容正確', category: '規範', isCritical: false },
+            { id: 'i8', title: '價格牌跳行規範', desc: '第二行文字須完整顯示', category: '規範', isCritical: false },
+            { id: 'i9', title: '展示機跑 Retail Mode', desc: '確認執行零售模式', category: '軟體', isCritical: true },
+            { id: 'i10', title: '展示機顯示 R 字樣', desc: '螢幕上方確認顯示 R', category: '軟體', isCritical: true, requirePhoto: true },
+            { id: 'i11', title: '電子看板 INFO 連網', desc: '確認 INFO 資訊看板已連線', category: '軟體', isCritical: true },
+            { id: 'i12', title: '雲端照片', desc: '確認照片同步狀態', category: '系統', isCritical: false },
+            { id: 'i13', title: '軟體更新', desc: '檢查系統更新', category: '系統', isCritical: false },
+            { id: 'i14', title: 'Wearable/ST 更新', desc: '只更新 Wearable 與 SmartThing', category: '系統', isCritical: false },
+            { id: 'i15', title: '是否配對', desc: '穿戴裝置配對狀態', category: '系統', isCritical: false },
+            { id: 'i16', title: 'Google/三星 帳號', desc: '皆已登錄', category: '系統', isCritical: false },
+            { id: 'i17', title: '電量問題', desc: '確認充電正常', category: '系統', isCritical: false },
+        ];
+
+        // --- Helper: Robust Date Formatter ---
+        const parseAndFormatDate = (input) => {
+            if (!input) return '--/-- --:--';
+            let dateObj;
+            const d = new Date(input);
+            if (!isNaN(d.getTime())) {
+                dateObj = d;
+            } else {
+                if (typeof input === 'string' && input.includes('/')) {
+                    const parts = input.split(' ');
+                    const dateParts = parts[0].split('/');
+                    const timeParts = parts[1] ? parts[1].split(':') : ['00', '00'];
+                    if (dateParts.length === 3) {
+                        dateObj = new Date(
+                            parseInt(dateParts[0]), 
+                            parseInt(dateParts[1]) - 1, 
+                            parseInt(dateParts[2]),
+                            parseInt(timeParts[0]), 
+                            parseInt(timeParts[1])
+                        );
+                    }
+                }
+            }
+            if (dateObj && !isNaN(dateObj.getTime())) {
+                const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const d = String(dateObj.getDate()).padStart(2, '0');
+                const h = String(dateObj.getHours()).padStart(2, '0');
+                const min = String(dateObj.getMinutes()).padStart(2, '0');
+                return `${m}/${d} ${h}:${min}`;
+            }
+            return String(input);
+        };
+
+        const getNowString = () => {
+            const date = new Date();
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            const h = String(date.getHours()).padStart(2, '0');
+            const min = String(date.getMinutes()).padStart(2, '0');
+            return `${y}/${m}/${d} ${h}:${min}`;
+        };
+
+        const callApi = async (url, action, data = {}) => {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action, ...data })
+                });
+                return await response.json();
+            } catch (error) {
+                console.error("API Error:", error);
+                throw error;
+            }
+        };
+
+        // --- Components ---
+
+        // Enhanced Loading Overlay
+        const LoadingOverlay = ({ message }) => (
+            <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center backdrop-blur-md animate-fade-in">
+                <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-[280px] w-full transform transition-all scale-in">
+                    <div className="w-16 h-16 bg-samsung-blue rounded-full flex items-center justify-center mb-6 shadow-lg shadow-blue-500/30 pulse-logo relative">
+                        <i className="fa-solid fa-cloud text-white text-2xl"></i>
+                        <div className="absolute inset-0 border-4 border-blue-200 rounded-full opacity-30 animate-ping"></div>
+                    </div>
+                    <h3 className="font-bold text-gray-800 text-lg mb-2">處理中<span className="dots"></span></h3>
+                    <p className="text-gray-500 text-xs text-center leading-relaxed font-medium">
+                        {message || '正在與 Google 雲端連線...'}
+                        <br/>
+                        <span className="text-[10px] text-gray-400 mt-1 block">請勿關閉視窗</span>
+                    </p>
+                </div>
+            </div>
+        );
+
+        const LoginScreen = ({ onLogin, apiUrl, setApiUrl }) => {
+            const [name, setName] = useState('');
+            const [role, setRole] = useState('staff');
+            const [password, setPassword] = useState('');
+            const [localUrl, setLocalUrl] = useState(apiUrl || DEFAULT_API_URL);
+
+            useEffect(() => {
+                const savedName = localStorage.getItem('samsung_audit_username');
+                const savedRole = localStorage.getItem('samsung_audit_userrole');
+                if (savedName) setName(savedName);
+                if (savedRole) setRole(savedRole);
+            }, []);
+
+            useEffect(() => {
+                if (!apiUrl && DEFAULT_API_URL) {
+                     setApiUrl(DEFAULT_API_URL);
+                     localStorage.setItem('samsung_audit_api_url', DEFAULT_API_URL);
+                }
+            }, []);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                let cleanName = name.trim();
+                
+                if (role === 'manager') {
+                    if (password !== MANAGER_PASSWORD) {
+                        alert("檢核人員密碼錯誤！");
+                        return;
+                    }
+                    cleanName = "檢核人員";
+                } else {
+                    if (!cleanName) return;
+                }
+
+                localStorage.setItem('samsung_audit_username', cleanName);
+                localStorage.setItem('samsung_audit_userrole', role);
+
+                if (!apiUrl) {
+                    setApiUrl(localUrl);
+                }
+                onLogin(cleanName, role);
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl scale-in">
+                        <div className="text-center mb-8">
+                            <div className="bg-samsung-blue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg">S</div>
+                            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">微風南山稽核系統</h1>
+                            <p className="text-gray-500 text-sm mt-2">Mobile Version 2.6 (Auto-Scroll)</p>
+                        </div>
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1.5">您的姓名 {role === 'manager' && "(檢核人員免填)"}</label>
+                                <input 
+                                    type="text" 
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base shadow-sm transition-all"
+                                    placeholder={role === 'manager' ? "系統自動登錄" : "例如：王小明"}
+                                    disabled={role === 'manager'}
+                                    style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+                                />
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                                <button 
+                                    type="button"
+                                    onClick={() => setRole('staff')}
+                                    className={`p-4 rounded-xl border text-sm font-bold transition-all active:scale-95 ${role === 'staff' ? 'bg-blue-50 border-blue-500 text-blue-700 ring-2 ring-blue-200' : 'border-gray-200 text-gray-500 bg-gray-50'}`}
+                                >
+                                    <i className="fa-solid fa-user mr-2"></i>我是店員
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => setRole('manager')}
+                                    className={`p-4 rounded-xl border text-sm font-bold transition-all active:scale-95 ${role === 'manager' ? 'bg-gray-800 border-gray-800 text-white ring-2 ring-gray-400' : 'border-gray-200 text-gray-500 bg-gray-50'}`}
+                                >
+                                    <i className="fa-solid fa-user-tie mr-2"></i>檢核人員
+                                </button>
+                            </div>
+
+                            {role === 'manager' && (
+                                <div className="animate-fade-in">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">檢核人員密碼</label>
+                                    <input 
+                                        type="password" 
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-800 outline-none text-base shadow-sm"
+                                        placeholder="請輸入密碼"
+                                        style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+                                    />
+                                </div>
+                            )}
+
+                            <button 
+                                type="submit"
+                                className={`w-full text-white py-4 rounded-xl font-bold shadow-lg transition transform active:scale-95 bg-samsung-blue hover:bg-blue-800 text-lg`}
+                            >
+                                登入系統
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        const Header = ({ currentUser, onLogout, onRefresh }) => (
+            <div className="bg-black text-white px-4 py-3 sticky top-0 z-50 shadow-md">
+                <div className="flex justify-between items-center max-w-md mx-auto">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-samsung-blue w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shadow-inner border border-blue-400">
+                            {currentUser.name[0]}
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-sm tracking-wide leading-tight">{currentUser.name}</span>
+                            <span className="text-[10px] text-gray-400 uppercase font-medium">{currentUser.role === 'staff' ? 'Staff' : 'Inspector'}</span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button onClick={onRefresh} className="w-8 h-8 flex items-center justify-center rounded-full active:bg-gray-800 transition">
+                             <i className="fa-solid fa-rotate-right text-gray-400"></i>
+                        </button>
+                        {currentUser.role === 'staff' && (
+                            <div className="flex items-center gap-1.5 bg-gray-800 pl-3 pr-4 py-1.5 rounded-full text-sm border border-gray-700 shadow-sm">
+                                <i className="fa-solid fa-star text-yellow-400 text-xs"></i>
+                                <span className="font-bold font-mono">{currentUser.points}</span>
+                            </div>
+                        )}
+                        <button onClick={onLogout} className="w-8 h-8 flex items-center justify-center rounded-full active:bg-gray-800 transition">
+                            <i className="fa-solid fa-right-from-bracket text-gray-400"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+
+        const ZoneSelector = ({ onSelectZone }) => {
+            return (
+                <div className="p-4 max-w-md mx-auto scale-in pb-32">
+                    <h2 className="text-xl font-bold mb-5 text-gray-800 ml-1">今日稽核區域</h2>
+                    <div className="grid grid-cols-2 gap-4">
+                        {ZONES.map(zone => (
+                            <button 
+                                key={zone.id}
+                                onClick={() => onSelectZone(zone)}
+                                className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-3 active:scale-95 active:bg-gray-50 transition-all duration-150"
+                            >
+                                <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center text-samsung-blue text-2xl font-bold shadow-inner">
+                                    {zone.id}
+                                </div>
+                                <span className="font-bold text-gray-700">{zone.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                    <div className="mt-8 bg-red-50 p-5 rounded-2xl border border-red-100 shadow-sm">
+                        <div className="flex items-start gap-3">
+                            <div className="bg-white p-2 rounded-full shadow-sm text-red-500">
+                                <i className="fa-solid fa-circle-exclamation text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-red-800 text-sm mb-1">重點稽核提醒</h3>
+                                <p className="text-sm text-gray-600 leading-relaxed">平板展座防盜線、展示機 R 字樣為今日必查重點。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const AuditForm = ({ zone, currentUser, onBack, onSubmit }) => {
+            const [results, setResults] = useState({});
+            const [note, setNote] = useState('');
+            const [isDraftLoaded, setIsDraftLoaded] = useState(false);
+            const itemRefs = useRef([]); 
+
+            useEffect(() => {
+                const draftKey = `samsung_audit_draft_${currentUser.name}_${zone.id}`;
+                const savedDraft = localStorage.getItem(draftKey);
+                if (savedDraft) {
+                    try {
+                        const parsed = JSON.parse(savedDraft);
+                        setResults(parsed.results || {});
+                        setNote(parsed.note || '');
+                    } catch(e) { console.error("Error loading draft", e); }
+                }
+                setIsDraftLoaded(true);
+            }, [currentUser.name, zone.id]);
+
+            useEffect(() => {
+                if (!isDraftLoaded) return;
+                const draftKey = `samsung_audit_draft_${currentUser.name}_${zone.id}`;
+                const draftData = { results, note };
+                localStorage.setItem(draftKey, JSON.stringify(draftData));
+            }, [results, note, isDraftLoaded, currentUser.name, zone.id]);
+
+            // Auto-Scroll Logic Restored
+            const handleToggle = (itemId, status) => {
+                setResults(prev => ({ ...prev, [itemId]: { ...prev[itemId], status } }));
+
+                const currentIndex = CHECK_ITEMS_TEMPLATE.findIndex(i => i.id === itemId);
+                if (currentIndex !== -1 && currentIndex < CHECK_ITEMS_TEMPLATE.length - 1) {
+                    const nextNode = itemRefs.current[currentIndex + 1];
+                    if (nextNode) {
+                        // 300ms delay for visual feedback
+                        setTimeout(() => {
+                            nextNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 300); 
+                    }
+                }
+            };
+
+            const handlePhoto = (itemId) => {
+                setResults(prev => ({ ...prev, [itemId]: { ...prev[itemId], hasPhoto: !prev[itemId]?.hasPhoto } }));
+            };
+
+            const completedCount = Object.keys(results).filter(k => results[k]?.status).length;
+            const totalCount = CHECK_ITEMS_TEMPLATE.length;
+            const progressPercent = Math.round((completedCount / totalCount) * 100);
+            const isReadyToSubmit = completedCount === totalCount;
+
+            const submitAudit = () => {
+                if (!isReadyToSubmit) return;
+                const itemsPayload = CHECK_ITEMS_TEMPLATE.map(item => ({
+                    ...item,
+                    staffResult: results[item.id]?.status || 'fail',
+                    hasPhoto: results[item.id]?.hasPhoto
+                }));
+                if (note.trim()) {
+                    itemsPayload.push({
+                        id: 'custom_note', title: '狀況回報/備註', desc: note.trim(), category: '備註', staffResult: 'info', isNote: true
+                    });
+                }
+                const auditData = {
+                    id: `${Date.now()}_${currentUser.name}`, zoneId: zone.id, zoneName: zone.name, 
+                    timestamp: getNowString(), 
+                    staffName: currentUser.name, items: itemsPayload, status: 'pending'
+                };
+                const draftKey = `samsung_audit_draft_${currentUser.name}_${zone.id}`;
+                localStorage.removeItem(draftKey);
+                onSubmit(auditData);
+            };
+
+            return (
+                <div className="pb-32 max-w-md mx-auto bg-white min-h-screen scale-in pb-safe">
+                    <div className="sticky top-[60px] bg-white/95 backdrop-blur-md z-40 border-b shadow-sm transition-all">
+                        <div className="p-4 flex items-center gap-4">
+                            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 active:bg-gray-200">
+                                <i className="fa-solid fa-arrow-left text-lg"></i>
+                            </button>
+                            <div className="flex-1">
+                                <div className="flex justify-between items-end mb-1.5">
+                                    <h2 className="font-bold text-lg text-gray-800">{zone.name}</h2>
+                                    <span className="text-xs font-bold text-samsung-blue bg-blue-50 px-2 py-0.5 rounded-md">{completedCount}/{totalCount}</span>
+                                </div>
+                                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                    <div className="bg-samsung-blue h-2 rounded-full progress-bar shadow-[0_0_10px_rgba(20,40,160,0.3)]" style={{ width: `${progressPercent}%` }}></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-4 space-y-6">
+                        {CHECK_ITEMS_TEMPLATE.map((item, index) => {
+                            const itemState = results[item.id] || {};
+                            return (
+                                <div 
+                                    key={item.id} 
+                                    ref={el => itemRefs.current[index] = el}
+                                    className="border-b border-gray-100 pb-5 last:border-0 scroll-mt-48"
+                                >
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div className="pr-2">
+                                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                {item.isCritical && <span className="bg-red-50 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded border border-red-100">重點</span>}
+                                                <h3 className="font-bold text-gray-800 text-[15px]">{item.title}</h3>
+                                            </div>
+                                            <p className="text-sm text-gray-500 leading-snug">{item.desc}</p>
+                                        </div>
+                                        {item.requirePhoto && (
+                                            <button 
+                                                onClick={() => handlePhoto(item.id)}
+                                                className={`flex-shrink-0 flex flex-col items-center justify-center w-11 h-11 rounded-full transition-all active:scale-90 ${itemState.hasPhoto ? 'bg-green-100 text-green-600 shadow-inner' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}
+                                            >
+                                                <i className="fa-solid fa-camera"></i>
+                                                {itemState.hasPhoto && <i className="fa-solid fa-check text-[10px] absolute bg-white rounded-full p-0.5 border border-green-500 -bottom-1 -right-1"></i>}
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button 
+                                            onClick={() => handleToggle(item.id, 'fail')}
+                                            className={`flex-1 py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2 
+                                                ${itemState.status === 'fail' 
+                                                    ? 'bg-red-50 text-red-600 border border-red-200 ring-2 ring-red-500 ring-offset-1 shadow-sm' 
+                                                    : 'bg-gray-50 text-gray-500 border border-transparent hover:bg-gray-100'}`}
+                                        >
+                                            <i className="fa-solid fa-xmark"></i> 異常
+                                        </button>
+                                        <button 
+                                            onClick={() => handleToggle(item.id, 'pass')}
+                                            className={`flex-1 py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2 
+                                                ${itemState.status === 'pass' 
+                                                    ? 'bg-samsung-blue text-white shadow-lg shadow-blue-500/30' 
+                                                    : 'bg-gray-50 text-gray-500 border border-transparent hover:bg-gray-100'}`}
+                                        >
+                                            <i className="fa-solid fa-check"></i> 正常 (Pass)
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        <div className="mt-8 pt-6 border-t border-gray-100">
+                            <label className="block text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-full bg-blue-50 text-samsung-blue flex items-center justify-center"><i className="fa-solid fa-pen-to-square"></i></span>
+                                狀況回報 / 備註 (選填)
+                            </label>
+                            <textarea
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                                placeholder="例如：展機線材些微破損、價格牌架缺損..."
+                                className="w-full p-4 border border-gray-200 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none h-32 resize-none shadow-sm bg-gray-50"
+                                style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+                            ></textarea>
+                            <p className="text-xs text-gray-400 mt-2 text-right flex items-center justify-end gap-1"><i className="fa-regular fa-floppy-disk"></i> 內容已自動暫存</p>
+                        </div>
+                    </div>
+                    
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-lg border-t border-gray-200 max-w-md mx-auto z-50 pb-safe">
+                        <button 
+                            disabled={!isReadyToSubmit}
+                            onClick={submitAudit}
+                            className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2
+                                ${isReadyToSubmit 
+                                    ? 'bg-black text-white hover:bg-gray-900 shadow-black/20' 
+                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                        >
+                            <span>提交稽核</span>
+                            {isReadyToSubmit && <i className="fa-solid fa-paper-plane text-sm"></i>}
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const RedemptionPanel = ({ allUsers, onRedeem, onClose }) => {
+            const [selectedUser, setSelectedUser] = useState(null);
+            const [amount, setAmount] = useState('');
+            const staffList = Object.entries(allUsers).filter(([_, data]) => data.role === 'staff');
+
+            const handleRedeem = () => {
+                if (!selectedUser || !amount) return;
+                onRedeem(selectedUser, parseInt(amount));
+                setAmount('');
+                setSelectedUser(null);
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black/60 z-[100] flex items-end sm:items-center justify-center animate-fade-in backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-sm sm:rounded-2xl rounded-t-2xl p-6 shadow-2xl scale-in pb-safe">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-800">點數兌換</h2>
+                            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full text-gray-500"><i className="fa-solid fa-xmark text-lg"></i></button>
+                        </div>
+                        <div className="space-y-3 mb-6 max-h-[50vh] overflow-y-auto no-scrollbar">
+                            {staffList.map(([name, data]) => (
+                                <button
+                                    key={name}
+                                    onClick={() => setSelectedUser(name)}
+                                    className={`w-full flex justify-between items-center p-4 rounded-xl border transition-all active:scale-98 ${selectedUser === name ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'border-gray-100 bg-white hover:bg-gray-50'}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm">{name[0]}</div>
+                                        <span className="font-bold text-gray-700">{name}</span>
+                                    </div>
+                                    <div className="font-bold text-samsung-blue bg-blue-100 px-3 py-1 rounded-full text-sm">{data.points} P</div>
+                                </button>
+                            ))}
+                        </div>
+                        {selectedUser && (
+                            <div className="bg-gray-50 p-5 rounded-2xl animate-fade-in">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">兌換點數</label>
+                                <div className="flex gap-3">
+                                    <input 
+                                        type="number" 
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                        placeholder="輸入點數"
+                                        className="flex-1 p-3.5 rounded-xl border border-gray-300 outline-none focus:border-blue-500 text-lg font-bold"
+                                        style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+                                    />
+                                    <button 
+                                        onClick={handleRedeem}
+                                        disabled={!amount || amount <= 0 || amount > allUsers[selectedUser].points}
+                                        className="bg-black text-white px-6 rounded-xl font-bold disabled:opacity-50 active:scale-95 transition"
+                                    >
+                                        兌換
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const ManagerDashboard = ({ audits, allUsers, onReview, onOpenRedeem }) => {
+            const [tab, setTab] = useState('pending'); // pending, history, leaderboard
+
+            const filteredAudits = useMemo(() => {
+                if (tab === 'pending') return audits.filter(a => a.status === 'pending');
+                if (tab === 'history') return audits.filter(a => a.status === 'reviewed');
+                return [];
+            }, [audits, tab]);
+
+            const leaderboardData = useMemo(() => {
+                if (tab !== 'leaderboard') return [];
+                return Object.entries(allUsers)
+                    .filter(([_, data]) => data.role === 'staff')
+                    .sort((a, b) => b[1].points - a[1].points)
+                    .map(([name, data], index) => ({ rank: index + 1, name, points: data.points }));
+            }, [allUsers, tab]);
+
+            const renderRankIcon = (rank) => {
+                if (rank === 1) return <i className="fa-solid fa-trophy text-yellow-400 text-xl"></i>;
+                if (rank === 2) return <i className="fa-solid fa-medal text-gray-400 text-xl"></i>;
+                if (rank === 3) return <i className="fa-solid fa-medal text-orange-600 text-xl"></i>;
+                return <span className="font-bold text-gray-400 text-sm w-5 text-center">{rank}</span>;
+            };
+
+            return (
+                <div className="p-4 max-w-md mx-auto scale-in pb-32">
+                    <div className="flex justify-between items-center mb-5 sticky top-0 z-30 bg-gray-100/90 backdrop-blur pb-2">
+                        <div className="flex gap-1 bg-white p-1 rounded-xl border border-gray-200 shadow-sm overflow-x-auto no-scrollbar">
+                            <button onClick={() => setTab('pending')} className={`px-3 py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${tab === 'pending' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500'}`}>
+                                待複查 ({audits.filter(a => a.status === 'pending').length})
+                            </button>
+                            <button onClick={() => setTab('history')} className={`px-3 py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${tab === 'history' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500'}`}>
+                                歷史
+                            </button>
+                            <button onClick={() => setTab('leaderboard')} className={`px-3 py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${tab === 'leaderboard' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500'}`}>
+                                排行榜
+                            </button>
+                        </div>
+                        {tab !== 'leaderboard' && (
+                            <button onClick={onOpenRedeem} className="bg-samsung-blue text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 active:scale-95 transition flex-shrink-0">
+                                <i className="fa-solid fa-gift"></i>
+                            </button>
+                        )}
+                    </div>
+
+                    {tab === 'leaderboard' ? (
+                        <div className="space-y-3">
+                            {leaderboardData.length === 0 ? (
+                                <div className="text-center py-16 text-gray-400"><p>目前無人員資料</p></div>
+                            ) : (
+                                leaderboardData.map((user) => (
+                                    <div key={user.name} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-8 flex justify-center">{renderRankIcon(user.rank)}</div>
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-gray-800">{user.name}</span>
+                                                <span className="text-xs text-gray-400">Staff</span>
+                                            </div>
+                                        </div>
+                                        <div className="font-bold font-mono text-samsung-blue bg-blue-50 px-3 py-1 rounded-full text-sm">
+                                            {user.points} <span className="text-xs">pts</span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    ) : filteredAudits.length === 0 ? (
+                        <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
+                            <i className="fa-solid fa-clipboard-check text-5xl mb-4 text-gray-300"></i>
+                            <p className="font-medium">{tab === 'pending' ? '太棒了！目前沒有待審核項目' : '尚無歷史紀錄'}</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {filteredAudits.map(audit => (
+                                <div key={audit.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden active:scale-[0.99] transition-transform">
+                                    <div className="p-5">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <span className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center font-bold text-sm text-samsung-blue border border-blue-100">{audit.zoneId}</span>
+                                                <div>
+                                                    <h3 className="font-bold text-gray-800 text-lg leading-tight">{audit.zoneName}</h3>
+                                                    {/* Updated Time Display */}
+                                                    <p className="text-xs text-gray-400 mt-0.5 font-mono"><i className="fa-regular fa-clock mr-1"></i> {parseAndFormatDate(audit.timestamp)}</p>
+                                                </div>
+                                            </div>
+                                            {audit.status === 'reviewed' ? (
+                                                <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${audit.penalty > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                                                    {audit.penalty > 0 ? `扣 ${audit.penalty} 點` : 'Pass'}
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-bold animate-pulse">待複查</span>
+                                            )}
+                                        </div>
+                                        <div className="flex justify-between items-center pt-2 border-t border-gray-50 mt-2">
+                                            <p className="text-sm font-medium text-gray-600"><i className="fa-regular fa-user mr-1.5"></i> {audit.staffName}</p>
+                                            {audit.status === 'pending' ? (
+                                                <button onClick={() => onReview(audit)} className="bg-black text-white px-5 py-2 rounded-lg text-sm font-bold shadow-md active:bg-gray-800">開始複查</button>
+                                            ) : (
+                                                <button onClick={() => onReview(audit)} className="text-gray-400 hover:text-gray-600 text-sm font-medium flex items-center gap-1">詳情 <i className="fa-solid fa-chevron-right text-xs"></i></button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const ReviewForm = ({ audit, onBack, onSubmitReview }) => {
+            const [managerOverrides, setManagerOverrides] = useState({});
+
+            const handleOverride = (itemId, result) => {
+                setManagerOverrides(prev => ({ ...prev, [itemId]: result }));
+            };
+
+            const handleBatchApprove = () => {
+                const newOverrides = {};
+                audit.items.forEach(item => { if (!item.isNote) newOverrides[item.id] = 'pass'; });
+                setManagerOverrides(newOverrides);
+            };
+
+            const calculatePenalty = () => {
+                let penalty = 0;
+                audit.items.forEach(item => {
+                    if (item.isNote) return; 
+                    const staffResult = item.staffResult;
+                    const managerResult = managerOverrides[item.id] !== undefined ? managerOverrides[item.id] : (item.managerResult || staffResult);
+                    if (staffResult === 'pass' && managerResult === 'fail') penalty += 10;
+                });
+                return penalty;
+            };
+
+            const currentPenalty = calculatePenalty();
+
+            const submitReview = () => {
+                const reviewedItems = audit.items.map(item => ({
+                    ...item,
+                    managerResult: !item.isNote && managerOverrides[item.id] !== undefined ? managerOverrides[item.id] : item.staffResult
+                }));
+                onSubmitReview({ ...audit, items: reviewedItems, status: 'reviewed', penalty: currentPenalty });
+            };
+
+            const isReadOnly = audit.status === 'reviewed';
+
+            return (
+                <div className="pb-32 max-w-md mx-auto bg-white min-h-screen scale-in pb-safe">
+                     <div className="sticky top-[60px] bg-white/95 backdrop-blur-md z-40 border-b p-4 flex items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-3">
+                             <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 active:bg-gray-200"><i className="fa-solid fa-arrow-left"></i></button>
+                             <div>
+                                 <h2 className="font-bold text-lg text-gray-800">{isReadOnly ? '紀錄' : '複查'}: {audit.zoneName}</h2>
+                                 <p className="text-xs text-gray-500 font-medium bg-gray-100 inline-block px-2 py-0.5 rounded mt-0.5">{audit.staffName}</p>
+                             </div>
+                        </div>
+                        {!isReadOnly && (
+                            <button 
+                                onClick={handleBatchApprove}
+                                className="bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs font-bold active:bg-green-100 transition flex items-center gap-1.5 shadow-sm"
+                            >
+                                <i className="fa-solid fa-check-double"></i> 全部認可
+                            </button>
+                        )}
+                    </div>
+                    <div className="p-4 space-y-4">
+                        {!isReadOnly && (
+                            <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-xl text-sm text-yellow-800 flex items-center gap-2">
+                                <i className="fa-solid fa-circle-exclamation text-lg"></i>
+                                <span>點擊「駁回」抓缺失，系統將自動扣分。</span>
+                            </div>
+                        )}
+                        
+                        {audit.items.map(item => {
+                            if (item.isNote) {
+                                return (
+                                    <div key={item.id} className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                        <h4 className="font-bold text-gray-700 text-sm mb-1 flex items-center gap-2"><i className="fa-solid fa-comment text-blue-400"></i> 人員備註</h4>
+                                        <p className="text-gray-600 text-sm leading-relaxed">{item.desc}</p>
+                                    </div>
+                                );
+                            }
+
+                            const staffRes = item.staffResult;
+                            const currentManagerRes = managerOverrides[item.id] !== undefined ? managerOverrides[item.id] : (item.managerResult || staffRes);
+                            const isConflict = staffRes === 'pass' && currentManagerRes === 'fail';
+                            
+                            return (
+                                <div key={item.id} className={`border rounded-xl p-4 transition-all ${isConflict ? 'border-red-300 bg-red-50' : 'border-gray-100 bg-white'}`}>
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div className="flex-1 pr-2">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                {item.isCritical && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">重點</span>}
+                                                <h4 className="font-bold text-gray-800 text-[15px]">{item.title}</h4>
+                                            </div>
+                                            <p className="text-xs text-gray-400">{item.desc}</p>
+                                        </div>
+                                        <div className={`px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap ${staffRes === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                            員: {staffRes === 'pass' ? 'Pass' : 'Fail'}
+                                        </div>
+                                    </div>
+                                    
+                                    {!isReadOnly ? (
+                                        <div className="flex gap-2 mt-2">
+                                            <button onClick={() => handleOverride(item.id, 'pass')} className={`flex-1 py-3 rounded-lg text-xs font-bold border transition active:scale-95 ${currentManagerRes === 'pass' ? 'bg-green-600 text-white border-green-600 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>認可</button>
+                                            <button onClick={() => handleOverride(item.id, 'fail')} className={`flex-1 py-3 rounded-lg text-xs font-bold border transition active:scale-95 ${currentManagerRes === 'fail' ? 'bg-red-600 text-white border-red-600 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>駁回</button>
+                                        </div>
+                                    ) : (
+                                        <div className="mt-3 pt-2 border-t border-black/5 text-xs flex justify-between items-center">
+                                            <span className="text-gray-400 font-medium">檢核結果</span>
+                                            <span className={`font-bold flex items-center gap-1 ${currentManagerRes === 'pass' ? 'text-green-600' : 'text-red-600'}`}>
+                                                {currentManagerRes === 'pass' ? <><i className="fa-solid fa-check"></i> 認可</> : <><i className="fa-solid fa-xmark"></i> 駁回</>}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {isConflict && <p className="text-xs text-red-600 mt-2 font-bold text-right flex justify-end items-center gap-1"><i className="fa-solid fa-circle-minus"></i> 扣除 10 點</p>}
+                                </div>
+                            );
+                        })}
+                    </div>
+                    {!isReadOnly && (
+                        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-lg border-t border-gray-200 max-w-md mx-auto z-50 pb-safe">
+                            <div className="flex justify-between items-center mb-3 px-1">
+                                <span className="font-bold text-gray-500 text-sm">預計扣分</span>
+                                <span className={`text-xl font-bold ${currentPenalty > 0 ? 'text-red-600' : 'text-gray-800'}`}>-{currentPenalty} 點</span>
+                            </div>
+                            <button onClick={submitReview} className="w-full bg-samsung-blue text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:bg-blue-800 transition active:scale-95">提交複查結果</button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [usersData, setUsersData] = useState({});
+            const [currentUser, setCurrentUser] = useState(null); 
+            const [view, setView] = useState('login'); 
+            const [selectedZone, setSelectedZone] = useState(null);
+            const [selectedAudit, setSelectedAudit] = useState(null);
+            const [audits, setAudits] = useState([]);
+            const [showRedeemPanel, setShowRedeemPanel] = useState(false);
+            const [showSuccessModal, setShowSuccessModal] = useState(false);
+            const [modalMsg, setModalMsg] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const [loadingMsg, setLoadingMsg] = useState('');
+            const [apiUrl, setApiUrl] = useState('');
+
+            useEffect(() => {
+                const savedUrl = localStorage.getItem('samsung_audit_api_url');
+                if (savedUrl) setApiUrl(savedUrl);
+                else if (typeof DEFAULT_API_URL !== 'undefined') setApiUrl(DEFAULT_API_URL);
+            }, []);
+
+            const refreshData = async () => {
+                if (!apiUrl) return;
+                // Silent refresh, no loading overlay
+                try {
+                    const userRes = await callApi(apiUrl, 'getAllUsers');
+                    if (userRes.users) setUsersData(userRes.users);
+                    if (currentUser) {
+                         const updatedUser = userRes.users[currentUser.name];
+                         if (updatedUser) setCurrentUser(prev => ({ ...prev, points: updatedUser.points }));
+                    }
+                    if (currentUser && currentUser.role === 'manager') {
+                        const auditRes = await callApi(apiUrl, 'getAudits');
+                        if (auditRes.audits) setAudits(auditRes.audits);
+                    }
+                } catch (e) {
+                    console.error("Refresh failed");
+                }
+            };
+
+            const handleLogin = async (name, role) => {
+                setLoadingMsg(role === 'manager' ? '正在驗證身分...' : '正在登入系統...');
+                setIsLoading(true);
+                try {
+                    const res = await callApi(apiUrl, 'login', { name, role });
+                    setCurrentUser(res);
+                    const userRes = await callApi(apiUrl, 'getAllUsers');
+                    if (userRes.users) setUsersData(userRes.users);
+                    if (role === 'manager') {
+                        const auditRes = await callApi(apiUrl, 'getAudits');
+                        if (auditRes.audits) setAudits(auditRes.audits);
+                    }
+                    setView('dashboard');
+                } catch (e) { alert("登入失敗，請檢查網路"); }
+                setIsLoading(false);
+            };
+
+            const handleLogout = () => {
+                setCurrentUser(null);
+                setView('login');
+                setSelectedZone(null);
+                setSelectedAudit(null);
+                setAudits([]);
+            };
+
+            const handleAuditSubmit = async (auditData) => {
+                setLoadingMsg('正在上傳稽核資料...');
+                setIsLoading(true);
+                try {
+                    const res = await callApi(apiUrl, 'submitAudit', { audit: auditData });
+                    if (res.success) {
+                        setModalMsg('+10 點數已入帳！\n待檢核人員複查。');
+                        setShowSuccessModal(true);
+                        refreshData();
+                        setTimeout(() => {
+                            setShowSuccessModal(false);
+                            setView('dashboard');
+                            setSelectedZone(null);
+                        }, 1500); 
+                    }
+                } catch (e) { alert("提交失敗"); }
+                setIsLoading(false);
+            };
+
+            const handleReviewSubmit = async (reviewedAudit) => {
+                setLoadingMsg('正在同步複查結果...');
+                setIsLoading(true);
+                setAudits(prev => prev.map(a => a.id === reviewedAudit.id ? { ...reviewedAudit, status: 'reviewed' } : a));
+                try {
+                    const res = await callApi(apiUrl, 'submitReview', { audit: reviewedAudit });
+                    if (res.success) {
+                        setModalMsg(reviewedAudit.penalty > 0 ? `已扣除 ${reviewedAudit.penalty} 點。` : '複查完成。');
+                        setShowSuccessModal(true);
+                        setTimeout(() => {
+                            setShowSuccessModal(false);
+                            setView('dashboard');
+                            setSelectedAudit(null);
+                        }, 800); 
+                    }
+                } catch (e) { alert("複查提交失敗"); }
+                setIsLoading(false);
+            };
+
+            const handleRedeem = async (userName, amount) => {
+                setLoadingMsg('正在處理點數兌換...');
+                setIsLoading(true);
+                try {
+                    const res = await callApi(apiUrl, 'redeem', { name: userName, amount });
+                    if (res.success) {
+                        setModalMsg(`兌換成功！\n扣除 ${amount} 點。`);
+                        setShowRedeemPanel(false);
+                        setShowSuccessModal(true);
+                        refreshData();
+                        setTimeout(() => setShowSuccessModal(false), 2000);
+                    }
+                } catch(e) { alert("兌換失敗"); }
+                setIsLoading(false);
+            };
+
+            return (
+                <div className="min-h-screen pb-10 bg-gray-100 font-sans">
+                    {isLoading && <LoadingOverlay message={loadingMsg} />}
+                    {view === 'login' ? (
+                        <LoginScreen onLogin={handleLogin} apiUrl={apiUrl} setApiUrl={setApiUrl} />
+                    ) : (
+                        <>
+                            <Header currentUser={currentUser} onLogout={handleLogout} onRefresh={refreshData} />
+                            
+                            {currentUser.role === 'staff' && view === 'dashboard' && <ZoneSelector onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} />}
+                            {currentUser.role === 'staff' && view === 'audit_form' && <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
+                            
+                            {currentUser.role === 'manager' && view === 'dashboard' && <ManagerDashboard audits={audits} allUsers={usersData} onReview={(a) => { setSelectedAudit(a); setView('review_form'); }} onOpenRedeem={() => setShowRedeemPanel(true)} />}
+                            {currentUser.role === 'manager' && view === 'review_form' && <ReviewForm audit={selectedAudit} onBack={() => setView('dashboard')} onSubmitReview={handleReviewSubmit} />}
+
+                            {showRedeemPanel && <RedemptionPanel allUsers={usersData} onRedeem={handleRedeem} onClose={() => setShowRedeemPanel(false)} />}
+                            
+                            {showSuccessModal && (
+                                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] animate-fade-in backdrop-blur-sm">
+                                    <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-[280px] scale-in">
+                                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm"><i className="fa-solid fa-check text-3xl text-green-600"></i></div>
+                                        <h3 className="text-xl font-bold text-gray-800 mb-2">處理完成</h3>
+                                        <p className="text-gray-500 text-sm whitespace-pre-line leading-relaxed">{modalMsg}</p>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
