@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1428a0">
     <meta name="format-detection" content="telephone=no">
 
-    <title>三星門市稽核系統 (v4.1 Mystery Input)</title>
+    <title>三星門市稽核系統 (v4.3 New ID)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -61,7 +61,8 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- Config Data ---
-        const YOUR_DEPLOY_ID = "AKfycbwHoI3QVhCfzvJlKGFUNF9HQ5aeNU01EEIfWaz9Zsq33ntAJKSU3sxwAybkVNtYkHFf";
+        // Updated Deployment ID
+        const YOUR_DEPLOY_ID = "AKfycbz2ZjGBlt-3M_eAVjnoJRMS0I_i8Vd9KkJfpIMVRhcYnM_wBIGR6YhxjsbPxH64nqP6";
         const DEFAULT_API_URL = `https://script.google.com/macros/s/${YOUR_DEPLOY_ID}/exec`;
         const MANAGER_PASSWORD = "5444";
 
@@ -244,7 +245,7 @@
                         <div className="text-center mb-8">
                             <div className="bg-samsung-blue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg">S</div>
                             <h1 className="text-2xl font-bold text-gray-800 tracking-tight">微風南山稽核系統</h1>
-                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.1 (Mystery Input)</p>
+                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.3 (New ID)</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
@@ -449,7 +450,8 @@
                     id: `${Date.now()}_${currentUser.name}`, zoneId: zone.id, zoneName: zone.name, 
                     timestamp: getNowString(), 
                     staffName: currentUser.name, items: itemsPayload, status: 'pending',
-                    type: 'audit' // Identify as audit
+                    type: 'audit',
+                    note: note.trim() // Pass note specifically for Column J
                 };
                 const draftKey = `samsung_audit_draft_${currentUser.name}_${zone.id}`;
                 localStorage.removeItem(draftKey);
@@ -597,7 +599,8 @@
                     score: score,
                     mistakes: mistakes,
                     items: itemsPayload,
-                    status: 'pending'
+                    status: 'pending',
+                    note: mistakeNote.trim() // Pass note specifically for Column J
                 };
                 onSubmit(auditData);
             };
@@ -1197,27 +1200,11 @@
                     ) : (
                         <>
                             <Header currentUser={currentUser} onLogout={handleLogout} onRefresh={refreshData} />
-                            
-                            {/* Updated Logic to handle view changes */}
-                            {currentUser.role === 'staff' && view === 'dashboard' && (
-                                <StaffDashboard 
-                                    onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} 
-                                    onSelectMystery={() => setView('mystery_form')}
-                                />
-                            )}
-                            
-                            {currentUser.role === 'staff' && view === 'audit_form' && (
-                                <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />
-                            )}
-
-                            {/* New Mystery Form View */}
-                            {currentUser.role === 'staff' && view === 'mystery_form' && (
-                                <MysteryForm currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />
-                            )}
-                            
+                            {currentUser.role === 'staff' && view === 'dashboard' && <StaffDashboard onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} onSelectMystery={() => setView('mystery_form')} />}
+                            {currentUser.role === 'staff' && view === 'audit_form' && <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
+                            {currentUser.role === 'staff' && view === 'mystery_form' && <MysteryForm currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
                             {currentUser.role === 'manager' && view === 'dashboard' && <ManagerDashboard audits={audits} allUsers={usersData} onReview={(a) => { setSelectedAudit(a); setView('review_form'); }} onOpenRedeem={() => setShowRedeemPanel(true)} onDelete={handleDeleteAudit} />}
                             {currentUser.role === 'manager' && view === 'review_form' && <ReviewForm audit={selectedAudit} onBack={() => setView('dashboard')} onSubmitReview={handleReviewSubmit} />}
-
                             {showRedeemPanel && <RedemptionPanel allUsers={usersData} onRedeem={handleRedeem} onClose={() => setShowRedeemPanel(false)} />}
                             {showSuccessModal && (
                                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] animate-fade-in backdrop-blur-sm">
