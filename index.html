@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1428a0">
     <meta name="format-detection" content="telephone=no">
 
-    <title>三星門市稽核系統 (v4.0 Mystery Shopper)</title>
+    <title>三星門市稽核系統 (v4.1 Mystery Input)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -244,7 +244,7 @@
                         <div className="text-center mb-8">
                             <div className="bg-samsung-blue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg">S</div>
                             <h1 className="text-2xl font-bold text-gray-800 tracking-tight">微風南山稽核系統</h1>
-                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.0 (Mystery)</p>
+                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.1 (Mystery Input)</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
@@ -563,6 +563,7 @@
         const MysteryForm = ({ currentUser, onBack, onSubmit }) => {
             const [partnerName, setPartnerName] = useState('');
             const [mistakes, setMistakes] = useState(0);
+            const [mistakeNote, setMistakeNote] = useState(''); // New State
             const score = Math.max(0, 100 - (mistakes * 5));
 
             const isReadyToSubmit = partnerName.trim().length > 0;
@@ -573,6 +574,18 @@
 
             const submitMystery = () => {
                 if (!isReadyToSubmit) return;
+                
+                const itemsPayload = [
+                        { id: 'm_score', title: '訓練分數', desc: `${score} 分`, staffResult: score >= 80 ? 'pass' : 'fail' },
+                        { id: 'm_count', title: '缺失數', desc: `${mistakes} 個`, staffResult: 'info' }
+                ];
+
+                if (mistakeNote.trim()) {
+                    itemsPayload.push({
+                        id: 'm_note', title: '缺失說明', desc: mistakeNote.trim(), staffResult: 'info', isNote: true
+                    });
+                }
+
                 const auditData = {
                     id: `${Date.now()}_mystery_${currentUser.name}`,
                     zoneId: 'MYSTERY',
@@ -583,10 +596,7 @@
                     type: 'mystery',
                     score: score,
                     mistakes: mistakes,
-                    items: [
-                        { id: 'm_score', title: '訓練分數', desc: `${score} 分`, staffResult: score >= 80 ? 'pass' : 'fail' },
-                        { id: 'm_count', title: '缺失數', desc: `${mistakes} 個`, staffResult: 'info' }
-                    ],
+                    items: itemsPayload,
                     status: 'pending'
                 };
                 onSubmit(auditData);
@@ -647,6 +657,18 @@
                                     <i className="fa-solid fa-plus"></i>
                                 </button>
                             </div>
+                        </div>
+
+                        {/* New Mistake Note Input */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">缺失項目說明 (選填)</label>
+                            <textarea
+                                value={mistakeNote}
+                                onChange={(e) => setMistakeNote(e.target.value)}
+                                placeholder="請輸入具體缺失內容，例如：未主動介紹優惠..."
+                                className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-base h-24 resize-none"
+                                style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+                            ></textarea>
                         </div>
                     </div>
 
