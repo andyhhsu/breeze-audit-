@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1428a0">
     <meta name="format-detection" content="telephone=no">
 
-    <title>三星門市稽核系統 (v3.2 ID Updated)</title>
+    <title>三星門市稽核系統 (v4.0 Mystery Shopper)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -61,8 +61,7 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- Config Data ---
-        // ↓↓↓ 修改這裡 ↓↓↓
-        const YOUR_DEPLOY_ID = "AKfycbyKsLSa-wVNbSM6TpFCulKuqcGRU17_sDc0kYB13mheZdQvXh3XleDNyaMagR8RuAc2";
+        const YOUR_DEPLOY_ID = "AKfycbwHoI3QVhCfzvJlKGFUNF9HQ5aeNU01EEIfWaz9Zsq33ntAJKSU3sxwAybkVNtYkHFf";
         const DEFAULT_API_URL = `https://script.google.com/macros/s/${YOUR_DEPLOY_ID}/exec`;
         const MANAGER_PASSWORD = "5444";
 
@@ -245,7 +244,7 @@
                         <div className="text-center mb-8">
                             <div className="bg-samsung-blue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg">S</div>
                             <h1 className="text-2xl font-bold text-gray-800 tracking-tight">微風南山稽核系統</h1>
-                            <p className="text-gray-500 text-sm mt-2">Mobile Version 3.2 (ID Updated)</p>
+                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.0 (Mystery)</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
@@ -334,10 +333,28 @@
             </div>
         );
 
-        const ZoneSelector = ({ onSelectZone }) => {
+        // Updated ZoneSelector to be "StaffDashboard"
+        const StaffDashboard = ({ onSelectZone, onSelectMystery }) => {
             return (
                 <div className="p-4 max-w-md mx-auto scale-in pb-32">
-                    <h2 className="text-xl font-bold mb-5 text-gray-800 ml-1">今日稽核區域</h2>
+                    {/* Mystery Training Button */}
+                    <button 
+                        onClick={onSelectMystery}
+                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-5 rounded-2xl shadow-lg mb-8 flex items-center justify-between group active:scale-98 transition-all"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl backdrop-blur-sm">
+                                <i className="fa-solid fa-user-secret"></i>
+                            </div>
+                            <div className="text-left">
+                                <h3 className="font-bold text-lg">神秘客訓練</h3>
+                                <p className="text-blue-100 text-xs">雙人協作 • 缺失計數</p>
+                            </div>
+                        </div>
+                        <i className="fa-solid fa-chevron-right text-white/50 group-hover:translate-x-1 transition"></i>
+                    </button>
+
+                    <h2 className="text-xl font-bold mb-5 text-gray-800 ml-1">區域稽核 (Audit)</h2>
                     <div className="grid grid-cols-2 gap-4">
                         {ZONES.map(zone => (
                             <button 
@@ -431,7 +448,8 @@
                 const auditData = {
                     id: `${Date.now()}_${currentUser.name}`, zoneId: zone.id, zoneName: zone.name, 
                     timestamp: getNowString(), 
-                    staffName: currentUser.name, items: itemsPayload, status: 'pending'
+                    staffName: currentUser.name, items: itemsPayload, status: 'pending',
+                    type: 'audit' // Identify as audit
                 };
                 const draftKey = `samsung_audit_draft_${currentUser.name}_${zone.id}`;
                 localStorage.removeItem(draftKey);
@@ -535,6 +553,114 @@
                         >
                             <span>提交稽核</span>
                             {isReadyToSubmit && <i className="fa-solid fa-paper-plane text-sm"></i>}
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // NEW: Mystery Shopper Form
+        const MysteryForm = ({ currentUser, onBack, onSubmit }) => {
+            const [partnerName, setPartnerName] = useState('');
+            const [mistakes, setMistakes] = useState(0);
+            const score = Math.max(0, 100 - (mistakes * 5));
+
+            const isReadyToSubmit = partnerName.trim().length > 0;
+
+            const handleCounter = (delta) => {
+                setMistakes(prev => Math.max(0, prev + delta));
+            };
+
+            const submitMystery = () => {
+                if (!isReadyToSubmit) return;
+                const auditData = {
+                    id: `${Date.now()}_mystery_${currentUser.name}`,
+                    zoneId: 'MYSTERY',
+                    zoneName: '神秘客訓練',
+                    timestamp: getNowString(),
+                    staffName: `${currentUser.name} & ${partnerName}`, // Display both
+                    participants: [currentUser.name, partnerName.trim()], // For backend logic
+                    type: 'mystery',
+                    score: score,
+                    mistakes: mistakes,
+                    items: [
+                        { id: 'm_score', title: '訓練分數', desc: `${score} 分`, staffResult: score >= 80 ? 'pass' : 'fail' },
+                        { id: 'm_count', title: '缺失數', desc: `${mistakes} 個`, staffResult: 'info' }
+                    ],
+                    status: 'pending'
+                };
+                onSubmit(auditData);
+            };
+
+            return (
+                <div className="pb-32 max-w-md mx-auto bg-white min-h-screen scale-in pb-safe">
+                    <div className="sticky top-[60px] bg-white/95 backdrop-blur-md z-40 border-b shadow-sm transition-all">
+                        <div className="p-4 flex items-center gap-4">
+                            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 active:bg-gray-200">
+                                <i className="fa-solid fa-arrow-left text-lg"></i>
+                            </button>
+                            <h2 className="font-bold text-lg text-gray-800">神秘客訓練</h2>
+                        </div>
+                    </div>
+
+                    <div className="p-6 space-y-8">
+                        {/* Partner Input */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">協作夥伴姓名</label>
+                            <input 
+                                type="text" 
+                                value={partnerName}
+                                onChange={(e) => setPartnerName(e.target.value)}
+                                placeholder="請輸入夥伴姓名"
+                                className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-base"
+                                style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+                            />
+                            <p className="text-xs text-gray-400 mt-2">此次訓練將為您與夥伴同時累積 10 點</p>
+                        </div>
+
+                        {/* Score Display */}
+                        <div className="bg-gradient-to-br from-purple-600 to-indigo-600 rounded-3xl p-8 text-white text-center shadow-xl">
+                            <div className="text-sm font-medium opacity-80 mb-1">當前得分</div>
+                            <div className="text-6xl font-bold font-mono tracking-tighter">{score}</div>
+                            <div className="text-xs mt-2 opacity-60">起始 100 分 • 每一缺失 -5 分</div>
+                        </div>
+
+                        {/* Mistake Counter */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-4 text-center">缺失項目計數</label>
+                            <div className="flex items-center justify-center gap-6">
+                                <button 
+                                    onClick={() => handleCounter(-1)}
+                                    className="w-16 h-16 rounded-full border-2 border-gray-200 text-gray-400 text-2xl flex items-center justify-center active:bg-gray-100 active:scale-95 transition disabled:opacity-30"
+                                    disabled={mistakes === 0}
+                                >
+                                    <i className="fa-solid fa-minus"></i>
+                                </button>
+                                <div className="w-24 text-center">
+                                    <span className="text-4xl font-bold text-gray-800">{mistakes}</span>
+                                    <div className="text-xs text-gray-400 mt-1">個缺失</div>
+                                </div>
+                                <button 
+                                    onClick={() => handleCounter(1)}
+                                    className="w-16 h-16 rounded-full bg-red-50 text-red-500 border-2 border-red-100 text-2xl flex items-center justify-center active:bg-red-100 active:scale-95 transition shadow-sm"
+                                >
+                                    <i className="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-lg border-t border-gray-200 max-w-md mx-auto z-50 pb-safe">
+                        <button 
+                            disabled={!isReadyToSubmit}
+                            onClick={submitMystery}
+                            className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2
+                                ${isReadyToSubmit 
+                                    ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-purple-500/30' 
+                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                        >
+                            <span>提交訓練結果</span>
+                            {isReadyToSubmit && <i className="fa-solid fa-check-circle"></i>}
                         </button>
                     </div>
                 </div>
@@ -701,7 +827,9 @@
                                     <div className="p-5">
                                         <div className="flex justify-between items-start mb-3">
                                             <div className="flex items-center gap-3">
-                                                <span className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center font-bold text-sm text-samsung-blue border border-blue-100">{audit.zoneId}</span>
+                                                <span className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border ${audit.type === 'mystery' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-blue-50 text-samsung-blue border-blue-100'}`}>
+                                                    {audit.type === 'mystery' ? <i className="fa-solid fa-user-secret"></i> : audit.zoneId}
+                                                </span>
                                                 <div>
                                                     <h3 className="font-bold text-gray-800 text-lg leading-tight">{audit.zoneName}</h3>
                                                     <p className="text-xs text-gray-400 mt-0.5 font-mono"><i className="fa-regular fa-clock mr-1"></i> {parseAndFormatDate(audit.timestamp)}</p>
@@ -724,8 +852,17 @@
                                                 </button>
                                             </div>
                                         </div>
+                                        
+                                        {/* Content Preview based on Type */}
+                                        {audit.type === 'mystery' ? (
+                                            <div className="bg-purple-50 rounded-lg p-2.5 mb-2 text-xs text-purple-800 flex justify-between items-center">
+                                                <span><i className="fa-solid fa-trophy mr-1"></i> 得分: {audit.score}</span>
+                                                <span><i className="fa-solid fa-triangle-exclamation mr-1"></i> 缺失: {audit.mistakes}</span>
+                                            </div>
+                                        ) : null}
+
                                         <div className="flex justify-between items-center pt-2 border-t border-gray-50 mt-2">
-                                            <p className="text-sm font-medium text-gray-600"><i className="fa-regular fa-user mr-1.5"></i> {audit.staffName}</p>
+                                            <p className="text-sm font-medium text-gray-600 truncate max-w-[60%]"><i className="fa-regular fa-user mr-1.5"></i> {audit.staffName}</p>
                                             {audit.status === 'pending' ? (
                                                 <button onClick={() => onReview(audit)} className="bg-black text-white px-5 py-2 rounded-lg text-sm font-bold shadow-md active:bg-gray-800">開始複查</button>
                                             ) : (
@@ -755,7 +892,6 @@
             };
 
             const calculatePenalty = () => {
-                // FIXED: Logic to cap penalty at 10 points max per submission
                 let hasConflict = false;
                 audit.items.forEach(item => {
                     if (item.isNote) return; 
@@ -787,7 +923,7 @@
                              <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 active:bg-gray-200"><i className="fa-solid fa-arrow-left"></i></button>
                              <div>
                                  <h2 className="font-bold text-lg text-gray-800">{isReadOnly ? '紀錄' : '複查'}: {audit.zoneName}</h2>
-                                 <p className="text-xs text-gray-500 font-medium bg-gray-100 inline-block px-2 py-0.5 rounded mt-0.5">{audit.staffName}</p>
+                                 <p className="text-xs text-gray-500 font-medium bg-gray-100 inline-block px-2 py-0.5 rounded mt-0.5 truncate max-w-[150px]">{audit.staffName}</p>
                              </div>
                         </div>
                         {!isReadOnly && (
@@ -811,7 +947,7 @@
                             if (item.isNote) {
                                 return (
                                     <div key={item.id} className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                        <h4 className="font-bold text-gray-700 text-sm mb-1 flex items-center gap-2"><i className="fa-solid fa-comment text-blue-400"></i> 人員備註</h4>
+                                        <h4 className="font-bold text-gray-700 text-sm mb-1 flex items-center gap-2"><i className="fa-solid fa-comment text-blue-400"></i> {item.title}</h4>
                                         <p className="text-gray-600 text-sm leading-relaxed">{item.desc}</p>
                                     </div>
                                 );
@@ -821,6 +957,9 @@
                             const currentManagerRes = managerOverrides[item.id] !== undefined ? managerOverrides[item.id] : (item.managerResult || staffRes);
                             const isConflict = staffRes === 'pass' && currentManagerRes === 'fail';
                             
+                            // Visuals for Score items (Mystery) vs Standard Checkbox
+                            const isScoreItem = item.id.startsWith('m_');
+
                             return (
                                 <div key={item.id} className={`border rounded-xl p-4 transition-all ${isConflict ? 'border-red-300 bg-red-50' : 'border-gray-100 bg-white'}`}>
                                     <div className="flex justify-between items-start mb-3">
@@ -831,15 +970,20 @@
                                             </div>
                                             <p className="text-xs text-gray-400">{item.desc}</p>
                                         </div>
-                                        <div className={`px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap ${staffRes === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                            員: {staffRes === 'pass' ? 'Pass' : 'Fail'}
+                                        <div className={`px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap ${staffRes === 'pass' ? 'bg-green-100 text-green-700' : (staffRes === 'info' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700')}`}>
+                                            {staffRes === 'pass' ? 'Pass' : (staffRes === 'info' ? 'Info' : 'Fail')}
                                         </div>
                                     </div>
                                     
-                                    {!isReadOnly ? (
+                                    {!isReadOnly && !isScoreItem ? (
                                         <div className="flex gap-2 mt-2">
                                             <button onClick={() => handleOverride(item.id, 'pass')} className={`flex-1 py-3 rounded-lg text-xs font-bold border transition active:scale-95 ${currentManagerRes === 'pass' ? 'bg-green-600 text-white border-green-600 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>認可</button>
                                             <button onClick={() => handleOverride(item.id, 'fail')} className={`flex-1 py-3 rounded-lg text-xs font-bold border transition active:scale-95 ${currentManagerRes === 'fail' ? 'bg-red-600 text-white border-red-600 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>駁回</button>
+                                        </div>
+                                    ) : !isReadOnly && isScoreItem ? (
+                                         <div className="flex gap-2 mt-2">
+                                            <button onClick={() => handleOverride(item.id, 'pass')} className={`flex-1 py-3 rounded-lg text-xs font-bold border transition active:scale-95 ${currentManagerRes === 'pass' ? 'bg-green-600 text-white border-green-600 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>確認無誤</button>
+                                            <button onClick={() => handleOverride(item.id, 'fail')} className={`flex-1 py-3 rounded-lg text-xs font-bold border transition active:scale-95 ${currentManagerRes === 'fail' ? 'bg-red-600 text-white border-red-600 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>數據不實</button>
                                         </div>
                                     ) : (
                                         <div className="mt-3 pt-2 border-t border-black/5 text-xs flex justify-between items-center">
@@ -948,7 +1092,7 @@
             const handleDeleteAudit = (audit) => {
                 setConfirmAction({
                     title: "確認刪除",
-                    message: "您確定要刪除這筆稽核紀錄嗎？此動作無法復原。",
+                    message: "您確定要刪除這筆紀錄嗎？此動作無法復原。",
                     action: async () => {
                         setShowConfirmModal(false);
                         setLoadingMsg('正在刪除紀錄...');
@@ -969,7 +1113,7 @@
             };
 
             const handleAuditSubmit = async (auditData) => {
-                setLoadingMsg('正在上傳稽核資料...');
+                setLoadingMsg('正在上傳資料...');
                 setIsLoading(true);
                 try {
                     const res = await callApi(apiUrl, 'submitAudit', { audit: auditData });
@@ -1031,10 +1175,27 @@
                     ) : (
                         <>
                             <Header currentUser={currentUser} onLogout={handleLogout} onRefresh={refreshData} />
-                            {currentUser.role === 'staff' && view === 'dashboard' && <ZoneSelector onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} />}
-                            {currentUser.role === 'staff' && view === 'audit_form' && <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
+                            
+                            {/* Updated Logic to handle view changes */}
+                            {currentUser.role === 'staff' && view === 'dashboard' && (
+                                <StaffDashboard 
+                                    onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} 
+                                    onSelectMystery={() => setView('mystery_form')}
+                                />
+                            )}
+                            
+                            {currentUser.role === 'staff' && view === 'audit_form' && (
+                                <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />
+                            )}
+
+                            {/* New Mystery Form View */}
+                            {currentUser.role === 'staff' && view === 'mystery_form' && (
+                                <MysteryForm currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />
+                            )}
+                            
                             {currentUser.role === 'manager' && view === 'dashboard' && <ManagerDashboard audits={audits} allUsers={usersData} onReview={(a) => { setSelectedAudit(a); setView('review_form'); }} onOpenRedeem={() => setShowRedeemPanel(true)} onDelete={handleDeleteAudit} />}
                             {currentUser.role === 'manager' && view === 'review_form' && <ReviewForm audit={selectedAudit} onBack={() => setView('dashboard')} onSubmitReview={handleReviewSubmit} />}
+
                             {showRedeemPanel && <RedemptionPanel allUsers={usersData} onRedeem={handleRedeem} onClose={() => setShowRedeemPanel(false)} />}
                             {showSuccessModal && (
                                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] animate-fade-in backdrop-blur-sm">
