@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1428a0">
     <meta name="format-detection" content="telephone=no">
 
-    <title>三星門市稽核系統 (v4.3 New ID)</title>
+    <title>三星門市稽核系統 (v4.4 Staff Leaderboard & Map)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -61,10 +61,12 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- Config Data ---
-        // Updated Deployment ID
         const YOUR_DEPLOY_ID = "AKfycbz2ZjGBlt-3M_eAVjnoJRMS0I_i8Vd9KkJfpIMVRhcYnM_wBIGR6YhxjsbPxH64nqP6";
         const DEFAULT_API_URL = `https://script.google.com/macros/s/${YOUR_DEPLOY_ID}/exec`;
         const MANAGER_PASSWORD = "5444";
+
+        // ↓↓↓ 已修正為 GitHub Raw 連結 ↓↓↓
+        const STORE_MAP_URL = "https://raw.githubusercontent.com/andyhhsu/breeze-audit-/main/198802.jpg"; 
 
         const ZONES = [
             { id: 'A', name: 'A 區', icon: 'fa-a' },
@@ -245,7 +247,7 @@
                         <div className="text-center mb-8">
                             <div className="bg-samsung-blue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg">S</div>
                             <h1 className="text-2xl font-bold text-gray-800 tracking-tight">微風南山稽核系統</h1>
-                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.3 (New ID)</p>
+                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.4 (Staff Leaderboard)</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
@@ -334,28 +336,119 @@
             </div>
         );
 
+        // Reusable Leaderboard List Component
+        const LeaderboardList = ({ allUsers }) => {
+             const leaderboardData = useMemo(() => {
+                return Object.entries(allUsers)
+                    .filter(([_, data]) => data.role === 'staff')
+                    .sort((a, b) => {
+                        const scoreA = a[1].lifetimePoints !== undefined ? a[1].lifetimePoints : a[1].points;
+                        const scoreB = b[1].lifetimePoints !== undefined ? b[1].lifetimePoints : b[1].points;
+                        return scoreB - scoreA;
+                    })
+                    .map(([name, data], index) => ({ 
+                        rank: index + 1, 
+                        name, 
+                        points: data.points, 
+                        lifetimePoints: data.lifetimePoints !== undefined ? data.lifetimePoints : data.points 
+                    }));
+            }, [allUsers]);
+
+            const renderRankIcon = (rank) => {
+                if (rank === 1) return <i className="fa-solid fa-trophy text-yellow-400 text-xl"></i>;
+                if (rank === 2) return <i className="fa-solid fa-medal text-gray-400 text-xl"></i>;
+                if (rank === 3) return <i className="fa-solid fa-medal text-orange-600 text-xl"></i>;
+                return <span className="font-bold text-gray-400 text-sm w-5 text-center">{rank}</span>;
+            };
+
+            return (
+                <div className="space-y-3">
+                    <div className="text-xs text-center text-gray-400 mb-2">
+                        <i className="fa-solid fa-circle-info mr-1"></i> 
+                        排名依據：榮譽積分 (不受兌換影響)
+                    </div>
+                    {leaderboardData.length === 0 ? (
+                        <div className="text-center py-16 text-gray-400"><p>目前無人員資料</p></div>
+                    ) : (
+                        leaderboardData.map((user) => (
+                            <div key={user.name} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-8 flex justify-center">{renderRankIcon(user.rank)}</div>
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-gray-800">{user.name}</span>
+                                        <span className="text-xs text-gray-400">Staff</span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end">
+                                    <div className="font-bold font-mono text-samsung-blue bg-blue-50 px-3 py-1 rounded-full text-sm">
+                                        {user.points} <span className="text-xs">現有</span>
+                                    </div>
+                                    <span className="text-[10px] text-gray-400 mt-1">榮譽: {user.lifetimePoints}</span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            );
+        }
+
         // Updated ZoneSelector to be "StaffDashboard"
-        const StaffDashboard = ({ onSelectZone, onSelectMystery }) => {
+        const StaffDashboard = ({ onSelectZone, onSelectMystery, onShowLeaderboard }) => {
             return (
                 <div className="p-4 max-w-md mx-auto scale-in pb-32">
-                    {/* Mystery Training Button */}
-                    <button 
-                        onClick={onSelectMystery}
-                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-5 rounded-2xl shadow-lg mb-8 flex items-center justify-between group active:scale-98 transition-all"
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl backdrop-blur-sm">
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                        {/* Mystery Training Button */}
+                        <button 
+                            onClick={onSelectMystery}
+                            className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white p-4 rounded-2xl shadow-lg flex flex-col justify-between h-32 group active:scale-95 transition-all relative overflow-hidden"
+                        >
+                            <div className="absolute right-0 top-0 w-20 h-20 bg-white/10 rounded-full -mr-6 -mt-6"></div>
+                            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl backdrop-blur-sm">
                                 <i className="fa-solid fa-user-secret"></i>
                             </div>
-                            <div className="text-left">
+                            <div className="text-left z-10">
                                 <h3 className="font-bold text-lg">神秘客訓練</h3>
-                                <p className="text-blue-100 text-xs">雙人協作 • 缺失計數</p>
+                                <p className="text-blue-100 text-xs mt-1">雙人協作 • 缺失計數</p>
+                            </div>
+                        </button>
+
+                        {/* Leaderboard Button */}
+                        <button 
+                            onClick={onShowLeaderboard}
+                            className="bg-gradient-to-br from-yellow-400 to-orange-500 text-white p-4 rounded-2xl shadow-lg flex flex-col justify-between h-32 group active:scale-95 transition-all relative overflow-hidden"
+                        >
+                             <div className="absolute right-0 top-0 w-20 h-20 bg-white/10 rounded-full -mr-6 -mt-6"></div>
+                            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl backdrop-blur-sm">
+                                <i className="fa-solid fa-trophy"></i>
+                            </div>
+                            <div className="text-left z-10">
+                                <h3 className="font-bold text-lg">榮譽排行榜</h3>
+                                <p className="text-yellow-100 text-xs mt-1">查看團隊排名</p>
+                            </div>
+                        </button>
+                    </div>
+
+                    {/* Store Map Section */}
+                    <div className="mb-8">
+                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">門市分區展圖</span>
+                                <i className="fa-solid fa-map-location-dot text-gray-400"></i>
+                            </div>
+                            <div className="relative group">
+                                <img 
+                                    src={STORE_MAP_URL} 
+                                    alt="Store Map" 
+                                    className="w-full h-auto object-cover max-h-60"
+                                    onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/800x400/e2e8f0/94a3b8?text=Image+Not+Found"; }}
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none"></div>
                             </div>
                         </div>
-                        <i className="fa-solid fa-chevron-right text-white/50 group-hover:translate-x-1 transition"></i>
-                    </button>
+                    </div>
 
-                    <h2 className="text-xl font-bold mb-5 text-gray-800 ml-1">區域稽核 (Audit)</h2>
+                    <h2 className="text-xl font-bold mb-4 text-gray-800 ml-1">區域稽核 (Audit)</h2>
                     <div className="grid grid-cols-2 gap-4">
                         {ZONES.map(zone => (
                             <button 
@@ -370,6 +463,7 @@
                             </button>
                         ))}
                     </div>
+                    
                     <div className="mt-8 bg-red-50 p-5 rounded-2xl border border-red-100 shadow-sm">
                         <div className="flex items-start gap-3">
                             <div className="bg-white p-2 rounded-full shadow-sm text-red-500">
@@ -380,6 +474,24 @@
                                 <p className="text-sm text-gray-600 leading-relaxed">平板展座防盜線、展示機 R 字樣為今日必查重點。</p>
                             </div>
                         </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const StaffLeaderboardView = ({ allUsers, onBack }) => {
+            return (
+                <div className="pb-32 max-w-md mx-auto scale-in">
+                    <div className="sticky top-[60px] bg-white/95 backdrop-blur-md z-40 border-b shadow-sm transition-all">
+                        <div className="p-4 flex items-center gap-4">
+                            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 active:bg-gray-200">
+                                <i className="fa-solid fa-arrow-left text-lg"></i>
+                            </button>
+                            <h2 className="font-bold text-lg text-gray-800">榮譽排行榜</h2>
+                        </div>
+                    </div>
+                    <div className="p-4">
+                        <LeaderboardList allUsers={allUsers} />
                     </div>
                 </div>
             );
@@ -767,23 +879,6 @@
                 return [];
             }, [audits, tab]);
 
-            const leaderboardData = useMemo(() => {
-                if (tab !== 'leaderboard') return [];
-                return Object.entries(allUsers)
-                    .filter(([_, data]) => data.role === 'staff')
-                    .sort((a, b) => {
-                        const scoreA = a[1].lifetimePoints !== undefined ? a[1].lifetimePoints : a[1].points;
-                        const scoreB = b[1].lifetimePoints !== undefined ? b[1].lifetimePoints : b[1].points;
-                        return scoreB - scoreA;
-                    })
-                    .map(([name, data], index) => ({ 
-                        rank: index + 1, 
-                        name, 
-                        points: data.points, 
-                        lifetimePoints: data.lifetimePoints !== undefined ? data.lifetimePoints : data.points 
-                    }));
-            }, [allUsers, tab]);
-
             const renderRankIcon = (rank) => {
                 if (rank === 1) return <i className="fa-solid fa-trophy text-yellow-400 text-xl"></i>;
                 if (rank === 2) return <i className="fa-solid fa-medal text-gray-400 text-xl"></i>;
@@ -813,33 +908,7 @@
                     </div>
 
                     {tab === 'leaderboard' ? (
-                        <div className="space-y-3">
-                            <div className="text-xs text-center text-gray-400 mb-2">
-                                <i className="fa-solid fa-circle-info mr-1"></i> 
-                                排名依據：榮譽積分 (不受兌換影響)
-                            </div>
-                            {leaderboardData.length === 0 ? (
-                                <div className="text-center py-16 text-gray-400"><p>目前無人員資料</p></div>
-                            ) : (
-                                leaderboardData.map((user) => (
-                                    <div key={user.name} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-8 flex justify-center">{renderRankIcon(user.rank)}</div>
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-gray-800">{user.name}</span>
-                                                <span className="text-xs text-gray-400">Staff</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col items-end">
-                                            <div className="font-bold font-mono text-samsung-blue bg-blue-50 px-3 py-1 rounded-full text-sm">
-                                                {user.points} <span className="text-xs">現有</span>
-                                            </div>
-                                            <span className="text-[10px] text-gray-400 mt-1">榮譽: {user.lifetimePoints}</span>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
+                       <LeaderboardList allUsers={allUsers} />
                     ) : filteredAudits.length === 0 ? (
                         <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
                             <i className="fa-solid fa-clipboard-check text-5xl mb-4 text-gray-300"></i>
@@ -1200,11 +1269,32 @@
                     ) : (
                         <>
                             <Header currentUser={currentUser} onLogout={handleLogout} onRefresh={refreshData} />
-                            {currentUser.role === 'staff' && view === 'dashboard' && <StaffDashboard onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} onSelectMystery={() => setView('mystery_form')} />}
-                            {currentUser.role === 'staff' && view === 'audit_form' && <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
-                            {currentUser.role === 'staff' && view === 'mystery_form' && <MysteryForm currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
+                            
+                            {/* Updated Logic to handle view changes */}
+                            {currentUser.role === 'staff' && view === 'dashboard' && (
+                                <StaffDashboard 
+                                    onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} 
+                                    onSelectMystery={() => setView('mystery_form')}
+                                    onShowLeaderboard={() => setView('staff_leaderboard')}
+                                />
+                            )}
+
+                            {currentUser.role === 'staff' && view === 'staff_leaderboard' && (
+                                <StaffLeaderboardView allUsers={usersData} onBack={() => setView('dashboard')} />
+                            )}
+                            
+                            {currentUser.role === 'staff' && view === 'audit_form' && (
+                                <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />
+                            )}
+
+                            {/* New Mystery Form View */}
+                            {currentUser.role === 'staff' && view === 'mystery_form' && (
+                                <MysteryForm currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />
+                            )}
+                            
                             {currentUser.role === 'manager' && view === 'dashboard' && <ManagerDashboard audits={audits} allUsers={usersData} onReview={(a) => { setSelectedAudit(a); setView('review_form'); }} onOpenRedeem={() => setShowRedeemPanel(true)} onDelete={handleDeleteAudit} />}
                             {currentUser.role === 'manager' && view === 'review_form' && <ReviewForm audit={selectedAudit} onBack={() => setView('dashboard')} onSubmitReview={handleReviewSubmit} />}
+
                             {showRedeemPanel && <RedemptionPanel allUsers={usersData} onRedeem={handleRedeem} onClose={() => setShowRedeemPanel(false)} />}
                             {showSuccessModal && (
                                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] animate-fade-in backdrop-blur-sm">
