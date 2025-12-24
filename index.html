@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1428a0">
     <meta name="format-detection" content="telephone=no">
 
-    <title>三星門市稽核系統 (v4.4 Staff Leaderboard & Map)</title>
+    <title>三星門市稽核系統 (v4.5 Map Fix)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -247,7 +247,7 @@
                         <div className="text-center mb-8">
                             <div className="bg-samsung-blue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg">S</div>
                             <h1 className="text-2xl font-bold text-gray-800 tracking-tight">微風南山稽核系統</h1>
-                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.4 (Staff Leaderboard)</p>
+                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.5 (Map Fix)</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
@@ -394,6 +394,8 @@
 
         // Updated ZoneSelector to be "StaffDashboard"
         const StaffDashboard = ({ onSelectZone, onSelectMystery, onShowLeaderboard }) => {
+            const [showMapModal, setShowMapModal] = useState(false);
+
             return (
                 <div className="p-4 max-w-md mx-auto scale-in pb-32">
                     
@@ -433,20 +435,37 @@
                     <div className="mb-8">
                          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                             <div className="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">門市分區展圖</span>
+                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">門市分區展圖 (點擊放大)</span>
                                 <i className="fa-solid fa-map-location-dot text-gray-400"></i>
                             </div>
-                            <div className="relative group">
+                            {/* Updated Image Handling for Full Visibility & Lightbox */}
+                            <div className="relative group cursor-zoom-in" onClick={() => setShowMapModal(true)}>
                                 <img 
                                     src={STORE_MAP_URL} 
                                     alt="Store Map" 
-                                    className="w-full h-auto object-cover max-h-60"
+                                    className="w-full h-auto"
                                     onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/800x400/e2e8f0/94a3b8?text=Image+Not+Found"; }}
                                 />
                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none"></div>
+                                <div className="absolute bottom-2 right-2 bg-black/50 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                    <i className="fa-solid fa-expand text-sm"></i>
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    {/* Modal implementation */}
+                    {showMapModal && (
+                        <div className="fixed inset-0 bg-black/90 z-[120] flex items-center justify-center p-4 animate-fade-in backdrop-blur-sm" onClick={(e) => {
+                            e.stopPropagation();
+                            setShowMapModal(false);
+                        }}>
+                            <img src={STORE_MAP_URL} className="max-w-full max-h-full rounded-lg shadow-2xl scale-in" onClick={(e) => e.stopPropagation()} />
+                            <button className="absolute top-4 right-4 text-white w-10 h-10 flex items-center justify-center bg-gray-800/50 rounded-full" onClick={() => setShowMapModal(false)}>
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    )}
 
                     <h2 className="text-xl font-bold mb-4 text-gray-800 ml-1">區域稽核 (Audit)</h2>
                     <div className="grid grid-cols-2 gap-4">
@@ -878,6 +897,23 @@
                 if (tab === 'history') return audits.filter(a => a.status === 'reviewed');
                 return [];
             }, [audits, tab]);
+
+            const leaderboardData = useMemo(() => {
+                if (tab !== 'leaderboard') return [];
+                return Object.entries(allUsers)
+                    .filter(([_, data]) => data.role === 'staff')
+                    .sort((a, b) => {
+                        const scoreA = a[1].lifetimePoints !== undefined ? a[1].lifetimePoints : a[1].points;
+                        const scoreB = b[1].lifetimePoints !== undefined ? b[1].lifetimePoints : b[1].points;
+                        return scoreB - scoreA;
+                    })
+                    .map(([name, data], index) => ({ 
+                        rank: index + 1, 
+                        name, 
+                        points: data.points, 
+                        lifetimePoints: data.lifetimePoints !== undefined ? data.lifetimePoints : data.points 
+                    }));
+            }, [allUsers, tab]);
 
             const renderRankIcon = (rank) => {
                 if (rank === 1) return <i className="fa-solid fa-trophy text-yellow-400 text-xl"></i>;
