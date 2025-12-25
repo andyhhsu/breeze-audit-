@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1428a0">
     <meta name="format-detection" content="telephone=no">
 
-    <title>三星門市稽核系統 (v4.6 Items & Layout Update)</title>
+    <title>三星門市稽核系統 (v4.7 Quick Guide)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -216,6 +216,7 @@
             const [role, setRole] = useState('staff');
             const [password, setPassword] = useState('');
             const [localUrl, setLocalUrl] = useState(apiUrl || DEFAULT_API_URL);
+            const [showGuide, setShowGuide] = useState(false);
 
             useEffect(() => {
                 const savedName = localStorage.getItem('samsung_audit_username');
@@ -260,7 +261,7 @@
                         <div className="text-center mb-8">
                             <div className="bg-samsung-blue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg">S</div>
                             <h1 className="text-2xl font-bold text-gray-800 tracking-tight">微風南山稽核系統</h1>
-                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.6 (Layout & Items)</p>
+                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.7 (Quick Guide)</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
@@ -313,8 +314,39 @@
                             >
                                 登入系統
                             </button>
+
+                            <div className="flex justify-center mt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowGuide(true)}
+                                    className="text-gray-400 hover:text-samsung-blue transition-colors flex items-center gap-2 text-sm"
+                                >
+                                    <i className="fa-regular fa-circle-question text-lg"></i>
+                                    <span>快速上手指南</span>
+                                </button>
+                            </div>
                         </form>
                     </div>
+
+                    {/* Guide Modal */}
+                    {showGuide && (
+                        <div className="fixed inset-0 bg-black/90 z-[120] flex items-center justify-center p-4 animate-fade-in backdrop-blur-sm" onClick={() => setShowGuide(false)}>
+                            <div className="relative w-full max-w-lg max-h-[90vh] overflow-auto rounded-lg">
+                                <img 
+                                    src="https://github.com/andyhhsu/breeze-audit-/blob/main/%E4%B8%89%E6%98%9F%E5%BE%AE%E9%A2%A8%E5%8D%97%E5%B1%B1-%E6%95%B8%E4%BD%8D%E7%A8%BD%E6%A0%B8%E5%BF%AB%E9%80%9F%E6%8C%87%E5%8D%97.jpg?raw=true" 
+                                    className="w-full h-auto shadow-2xl scale-in rounded-lg" 
+                                    onClick={(e) => e.stopPropagation()} 
+                                    alt="使用指南"
+                                />
+                                <button 
+                                    className="absolute top-3 right-3 text-gray-800 w-8 h-8 flex items-center justify-center bg-white/90 rounded-full shadow-lg" 
+                                    onClick={() => setShowGuide(false)}
+                                >
+                                    <i className="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -957,7 +989,33 @@
                     </div>
 
                     {tab === 'leaderboard' ? (
-                       <LeaderboardList allUsers={allUsers} />
+                        <div className="space-y-3">
+                            <div className="text-xs text-center text-gray-400 mb-2">
+                                <i className="fa-solid fa-circle-info mr-1"></i> 
+                                排名依據：榮譽積分 (不受兌換影響)
+                            </div>
+                            {leaderboardData.length === 0 ? (
+                                <div className="text-center py-16 text-gray-400"><p>目前無人員資料</p></div>
+                            ) : (
+                                leaderboardData.map((user) => (
+                                    <div key={user.name} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-8 flex justify-center">{renderRankIcon(user.rank)}</div>
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-gray-800">{user.name}</span>
+                                                <span className="text-xs text-gray-400">Staff</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end">
+                                            <div className="font-bold font-mono text-samsung-blue bg-blue-50 px-3 py-1 rounded-full text-sm">
+                                                {user.points} <span className="text-xs">現有</span>
+                                            </div>
+                                            <span className="text-[10px] text-gray-400 mt-1">榮譽: {user.lifetimePoints}</span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     ) : filteredAudits.length === 0 ? (
                         <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
                             <i className="fa-solid fa-clipboard-check text-5xl mb-4 text-gray-300"></i>
@@ -1318,32 +1376,12 @@
                     ) : (
                         <>
                             <Header currentUser={currentUser} onLogout={handleLogout} onRefresh={refreshData} />
-                            
-                            {/* Updated Logic to handle view changes */}
-                            {currentUser.role === 'staff' && view === 'dashboard' && (
-                                <StaffDashboard 
-                                    onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} 
-                                    onSelectMystery={() => setView('mystery_form')}
-                                    onShowLeaderboard={() => setView('staff_leaderboard')}
-                                />
-                            )}
-
-                            {currentUser.role === 'staff' && view === 'staff_leaderboard' && (
-                                <StaffLeaderboardView allUsers={usersData} onBack={() => setView('dashboard')} />
-                            )}
-                            
-                            {currentUser.role === 'staff' && view === 'audit_form' && (
-                                <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />
-                            )}
-
-                            {/* New Mystery Form View */}
-                            {currentUser.role === 'staff' && view === 'mystery_form' && (
-                                <MysteryForm currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />
-                            )}
-                            
+                            {currentUser.role === 'staff' && view === 'dashboard' && <StaffDashboard onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} onSelectMystery={() => setView('mystery_form')} onShowLeaderboard={() => setView('staff_leaderboard')} />}
+                            {currentUser.role === 'staff' && view === 'staff_leaderboard' && <StaffLeaderboardView allUsers={usersData} onBack={() => setView('dashboard')} />}
+                            {currentUser.role === 'staff' && view === 'audit_form' && <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
+                            {currentUser.role === 'staff' && view === 'mystery_form' && <MysteryForm currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
                             {currentUser.role === 'manager' && view === 'dashboard' && <ManagerDashboard audits={audits} allUsers={usersData} onReview={(a) => { setSelectedAudit(a); setView('review_form'); }} onOpenRedeem={() => setShowRedeemPanel(true)} onDelete={handleDeleteAudit} />}
                             {currentUser.role === 'manager' && view === 'review_form' && <ReviewForm audit={selectedAudit} onBack={() => setView('dashboard')} onSubmitReview={handleReviewSubmit} />}
-
                             {showRedeemPanel && <RedemptionPanel allUsers={usersData} onRedeem={handleRedeem} onClose={() => setShowRedeemPanel(false)} />}
                             {showSuccessModal && (
                                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] animate-fade-in backdrop-blur-sm">
