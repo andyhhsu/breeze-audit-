@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1428a0">
     <meta name="format-detection" content="telephone=no">
 
-    <title>三星門市稽核系統 (v4.5 Map Fix)</title>
+    <title>三星門市稽核系統 (v4.6 Items & Layout Update)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -78,18 +78,31 @@
         ];
 
         const CHECK_ITEMS_TEMPLATE = [
-            { id: 'i1', title: '展機髒污', desc: '機身是否有指紋或污漬', category: '清潔', isCritical: false },
-            { id: 'i2', title: '展座下黑色部分要擦', desc: '確認展座底部黑色區域無灰塵', category: '清潔', isCritical: false },
+            // f. 展機髒污改為展機清潔
+            { id: 'i1', title: '展機清潔', desc: '(指紋、保護貼、汙垢)', category: '清潔', isCritical: false },
+            // d. 展座下黑色部分要擦改為展座清潔、毀損確認
+            { id: 'i2', title: '展座清潔、毀損確認', desc: '確認展座底部黑色區域無灰塵且無毀損', category: '清潔', isCritical: false },
             { id: 'i3', title: '桌面清潔', desc: '桌面無灰塵雜物', category: '清潔', isCritical: false },
-            { id: 'i4', title: '平板展座 (重點)', desc: '最容易被抓！確認防盜線收納', category: '規範', isCritical: true, requirePhoto: true },
+            // e. 新增:櫃體清潔
+            { id: 'i18', title: '櫃體清潔', desc: '櫃體表面與內部無灰塵雜物', category: '清潔', isCritical: false },
+            
+            // a. 平板展座改為展座防盜是否正常
+            { id: 'i4', title: '展座防盜是否正常', desc: '(蝸牛貼合、充電) *重點', category: '規範', isCritical: true, requirePhoto: true },
+            // c. 新增:防盜背貼是否需更換
+            { id: 'i19', title: '防盜背貼是否需更換', desc: '確認背貼黏性與狀態', category: '規範', isCritical: false },
+            
             { id: 'i5', title: '手錶正反面', desc: '確認手錶擺放方向正確', category: '規範', isCritical: false },
             { id: 'i6', title: '配件間距小於 5cm', desc: '商品掛勾間距需符合規範', category: '規範', isCritical: true },
             { id: 'i7', title: '價格牌是否合規範', desc: '位置與內容正確', category: '規範', isCritical: false },
             { id: 'i8', title: '價格牌跳行規範', desc: '第二行文字須完整顯示', category: '規範', isCritical: false },
+            
             { id: 'i9', title: '展示機跑 Retail Mode', desc: '確認執行零售模式', category: '軟體', isCritical: true },
             { id: 'i10', title: '展示機顯示 R 字樣', desc: '螢幕上方確認顯示 R', category: '軟體', isCritical: true, requirePhoto: true },
             { id: 'i11', title: '電子看板 INFO 連網', desc: '確認 INFO 資訊看板已連線', category: '軟體', isCritical: true },
-            { id: 'i12', title: '雲端照片', desc: '確認照片同步狀態', category: '系統', isCritical: false },
+            
+            // b. 雲端照片改為展機資料檢查
+            { id: 'i12', title: '展機資料檢查', desc: '(照片、雲端、郵件、試算表)', category: '系統', isCritical: false },
+            
             { id: 'i13', title: '軟體更新', desc: '檢查系統更新', category: '系統', isCritical: false },
             { id: 'i14', title: 'Wearable/ST 更新', desc: '只更新 Wearable 與 SmartThing', category: '系統', isCritical: false },
             { id: 'i15', title: '是否配對', desc: '穿戴裝置配對狀態', category: '系統', isCritical: false },
@@ -247,7 +260,7 @@
                         <div className="text-center mb-8">
                             <div className="bg-samsung-blue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg">S</div>
                             <h1 className="text-2xl font-bold text-gray-800 tracking-tight">微風南山稽核系統</h1>
-                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.5 (Map Fix)</p>
+                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.6 (Layout & Items)</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
@@ -431,8 +444,24 @@
                         </button>
                     </div>
 
-                    {/* Store Map Section */}
-                    <div className="mb-8">
+                    <h2 className="text-xl font-bold mb-4 text-gray-800 ml-1">區域稽核 (Audit)</h2>
+                    <div className="grid grid-cols-2 gap-4">
+                        {ZONES.map(zone => (
+                            <button 
+                                key={zone.id}
+                                onClick={() => onSelectZone(zone)}
+                                className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-3 active:scale-95 active:bg-gray-50 transition-all duration-150"
+                            >
+                                <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center text-samsung-blue text-2xl font-bold shadow-inner">
+                                    {zone.id}
+                                </div>
+                                <span className="font-bold text-gray-700">{zone.name}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Store Map Section Moved Here */}
+                    <div className="mt-8 mb-4">
                          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                             <div className="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
                                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">門市分區展圖 (點擊放大)</span>
@@ -466,24 +495,8 @@
                             </button>
                         </div>
                     )}
-
-                    <h2 className="text-xl font-bold mb-4 text-gray-800 ml-1">區域稽核 (Audit)</h2>
-                    <div className="grid grid-cols-2 gap-4">
-                        {ZONES.map(zone => (
-                            <button 
-                                key={zone.id}
-                                onClick={() => onSelectZone(zone)}
-                                className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-3 active:scale-95 active:bg-gray-50 transition-all duration-150"
-                            >
-                                <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center text-samsung-blue text-2xl font-bold shadow-inner">
-                                    {zone.id}
-                                </div>
-                                <span className="font-bold text-gray-700">{zone.name}</span>
-                            </button>
-                        ))}
-                    </div>
                     
-                    <div className="mt-8 bg-red-50 p-5 rounded-2xl border border-red-100 shadow-sm">
+                    <div className="mt-4 bg-red-50 p-5 rounded-2xl border border-red-100 shadow-sm">
                         <div className="flex items-start gap-3">
                             <div className="bg-white p-2 rounded-full shadow-sm text-red-500">
                                 <i className="fa-solid fa-circle-exclamation text-lg"></i>
