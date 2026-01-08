@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1428a0">
     <meta name="format-detection" content="telephone=no">
 
-    <title>三星門市稽核系統 (v4.7 Quick Guide)</title>
+    <title>三星門市稽核系統 (v4.8 SPen & Manager Note)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -66,7 +66,7 @@
         const MANAGER_PASSWORD = "5444";
 
         // ↓↓↓ 已修正為 GitHub Raw 連結 ↓↓↓
-        const STORE_MAP_URL = "https://github.com/andyhhsu/breeze-audit-/blob/main/200678.jpg?raw=true"; 
+        const STORE_MAP_URL = "https://raw.githubusercontent.com/andyhhsu/breeze-audit-/main/200678.jpg"; 
 
         const ZONES = [
             { id: 'A', name: 'A 區', icon: 'fa-a' },
@@ -78,17 +78,12 @@
         ];
 
         const CHECK_ITEMS_TEMPLATE = [
-            // f. 展機髒污改為展機清潔
             { id: 'i1', title: '展機清潔', desc: '(指紋、保護貼、汙垢)', category: '清潔', isCritical: false },
-            // d. 展座下黑色部分要擦改為展座清潔、毀損確認
             { id: 'i2', title: '展座清潔、毀損確認', desc: '確認展座底部黑色區域無灰塵且無毀損', category: '清潔', isCritical: false },
             { id: 'i3', title: '桌面清潔', desc: '桌面無灰塵雜物', category: '清潔', isCritical: false },
-            // e. 新增:櫃體清潔
             { id: 'i18', title: '櫃體清潔', desc: '櫃體表面與內部無灰塵雜物', category: '清潔', isCritical: false },
             
-            // a. 平板展座改為展座防盜是否正常
             { id: 'i4', title: '展座防盜是否正常', desc: '(蝸牛貼合、充電) *重點', category: '規範', isCritical: true, requirePhoto: true },
-            // c. 新增:防盜背貼是否需更換
             { id: 'i19', title: '防盜背貼是否需更換', desc: '確認背貼黏性與狀態', category: '規範', isCritical: false },
             
             { id: 'i5', title: '手錶正反面', desc: '確認手錶擺放方向正確', category: '規範', isCritical: false },
@@ -100,7 +95,6 @@
             { id: 'i10', title: '展示機顯示 R 字樣', desc: '螢幕上方確認顯示 R', category: '軟體', isCritical: true, requirePhoto: true },
             { id: 'i11', title: '電子看板 INFO 連網', desc: '確認 INFO 資訊看板已連線', category: '軟體', isCritical: true },
             
-            // b. 雲端照片改為展機資料檢查
             { id: 'i12', title: '展機資料檢查', desc: '(照片、雲端、郵件、試算表)', category: '系統', isCritical: false },
             
             { id: 'i13', title: '軟體更新', desc: '檢查系統更新', category: '系統', isCritical: false },
@@ -108,6 +102,9 @@
             { id: 'i15', title: '是否配對', desc: '穿戴裝置配對狀態', category: '系統', isCritical: false },
             { id: 'i16', title: 'Google/三星 帳號', desc: '皆已登錄', category: '系統', isCritical: false },
             { id: 'i17', title: '電量問題', desc: '確認充電正常', category: '系統', isCritical: false },
+            
+            // 1. 新增 Spen 連線檢核項目
+            { id: 'i20', title: 'Spen連線', desc: '(如果有)', category: '系統', isCritical: false },
         ];
 
         // --- Helper Functions ---
@@ -261,7 +258,7 @@
                         <div className="text-center mb-8">
                             <div className="bg-samsung-blue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg">S</div>
                             <h1 className="text-2xl font-bold text-gray-800 tracking-tight">微風南山稽核系統</h1>
-                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.7 (Quick Guide)</p>
+                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.8 (SPen & Manager Note)</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
@@ -333,7 +330,7 @@
                         <div className="fixed inset-0 bg-black/90 z-[120] flex items-center justify-center p-4 animate-fade-in backdrop-blur-sm" onClick={() => setShowGuide(false)}>
                             <div className="relative w-full max-w-lg max-h-[90vh] overflow-auto rounded-lg">
                                 <img 
-                                    src="https://github.com/andyhhsu/breeze-audit-/blob/main/%E4%B8%89%E6%98%9F%E5%BE%AE%E9%A2%A8%E5%8D%97%E5%B1%B1-%E6%95%B8%E4%BD%8D%E7%A8%BD%E6%A0%B8%E5%BF%AB%E9%80%9F%E6%8C%87%E5%8D%97.jpg?raw=true" 
+                                    src="https://raw.githubusercontent.com/andyhhsu/breeze-audit-/main/%E4%B8%89%E6%98%9F%E5%BE%AE%E9%A2%A8%E5%8D%97%E5%B1%B1-%E6%95%B8%E4%BD%8D%E7%A8%BD%E6%A0%B8%E5%BF%AB%E9%80%9F%E6%8C%87%E5%8D%97.jpg" 
                                     className="w-full h-auto shadow-2xl scale-in rounded-lg" 
                                     onClick={(e) => e.stopPropagation()} 
                                     alt="使用指南"
@@ -492,7 +489,7 @@
                         ))}
                     </div>
 
-                    {/* Store Map Section Moved Here */}
+                    {/* Store Map Section Moved Here - Below Zone Audits */}
                     <div className="mt-8 mb-4">
                          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                             <div className="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
@@ -1079,8 +1076,10 @@
             );
         };
 
+        // NEW: Manager Note Field in ReviewForm
         const ReviewForm = ({ audit, onBack, onSubmitReview }) => {
             const [managerOverrides, setManagerOverrides] = useState({});
+            const [managerNote, setManagerNote] = useState(''); // New State for Manager Note
 
             const handleOverride = (itemId, result) => {
                 setManagerOverrides(prev => ({ ...prev, [itemId]: result }));
@@ -1112,6 +1111,20 @@
                     ...item,
                     managerResult: !item.isNote && managerOverrides[item.id] !== undefined ? managerOverrides[item.id] : item.staffResult
                 }));
+                
+                // Append Manager Note if present
+                if (managerNote.trim()) {
+                    reviewedItems.push({
+                        id: `mgr_note_${Date.now()}`,
+                        title: '檢核人員備註',
+                        desc: managerNote.trim(),
+                        category: '備註',
+                        staffResult: 'info',
+                        isNote: true,
+                        isManagerNote: true
+                    });
+                }
+
                 onSubmitReview({ ...audit, items: reviewedItems, status: 'reviewed', penalty: currentPenalty });
             };
 
@@ -1147,8 +1160,11 @@
                         {audit.items.map(item => {
                             if (item.isNote) {
                                 return (
-                                    <div key={item.id} className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                        <h4 className="font-bold text-gray-700 text-sm mb-1 flex items-center gap-2"><i className="fa-solid fa-comment text-blue-400"></i> {item.title}</h4>
+                                    <div key={item.id} className={`p-4 rounded-xl border border-gray-200 ${item.isManagerNote ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'}`}>
+                                        <h4 className={`font-bold text-sm mb-1 flex items-center gap-2 ${item.isManagerNote ? 'text-blue-700' : 'text-gray-700'}`}>
+                                            <i className={`fa-solid ${item.isManagerNote ? 'fa-user-tie' : 'fa-comment'}`}></i> 
+                                            {item.title || '人員備註'}
+                                        </h4>
                                         <p className="text-gray-600 text-sm leading-relaxed">{item.desc}</p>
                                     </div>
                                 );
@@ -1199,6 +1215,21 @@
                                 </div>
                             );
                         })}
+
+                        {/* Manager Note Input */}
+                        {!isReadOnly && (
+                            <div className="mt-6 pt-4 border-t border-gray-200">
+                                <label className="block text-sm font-bold text-gray-800 mb-2">
+                                    <i className="fa-solid fa-pen-to-square text-blue-600 mr-2"></i>檢核筆記 / 分析備註
+                                </label>
+                                <textarea
+                                    value={managerNote}
+                                    onChange={(e) => setManagerNote(e.target.value)}
+                                    placeholder="填寫針對此分區的觀察或建議 (僅供紀錄)"
+                                    className="w-full p-4 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none bg-white"
+                                ></textarea>
+                            </div>
+                        )}
                     </div>
                     {!isReadOnly && (
                         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-lg border-t border-gray-200 max-w-md mx-auto z-50 pb-safe">
@@ -1376,12 +1407,32 @@
                     ) : (
                         <>
                             <Header currentUser={currentUser} onLogout={handleLogout} onRefresh={refreshData} />
-                            {currentUser.role === 'staff' && view === 'dashboard' && <StaffDashboard onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} onSelectMystery={() => setView('mystery_form')} onShowLeaderboard={() => setView('staff_leaderboard')} />}
-                            {currentUser.role === 'staff' && view === 'staff_leaderboard' && <StaffLeaderboardView allUsers={usersData} onBack={() => setView('dashboard')} />}
-                            {currentUser.role === 'staff' && view === 'audit_form' && <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
-                            {currentUser.role === 'staff' && view === 'mystery_form' && <MysteryForm currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
+                            
+                            {/* Updated Logic to handle view changes */}
+                            {currentUser.role === 'staff' && view === 'dashboard' && (
+                                <StaffDashboard 
+                                    onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} 
+                                    onSelectMystery={() => setView('mystery_form')}
+                                    onShowLeaderboard={() => setView('staff_leaderboard')}
+                                />
+                            )}
+
+                            {currentUser.role === 'staff' && view === 'staff_leaderboard' && (
+                                <StaffLeaderboardView allUsers={usersData} onBack={() => setView('dashboard')} />
+                            )}
+                            
+                            {currentUser.role === 'staff' && view === 'audit_form' && (
+                                <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />
+                            )}
+
+                            {/* New Mystery Form View */}
+                            {currentUser.role === 'staff' && view === 'mystery_form' && (
+                                <MysteryForm currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />
+                            )}
+                            
                             {currentUser.role === 'manager' && view === 'dashboard' && <ManagerDashboard audits={audits} allUsers={usersData} onReview={(a) => { setSelectedAudit(a); setView('review_form'); }} onOpenRedeem={() => setShowRedeemPanel(true)} onDelete={handleDeleteAudit} />}
                             {currentUser.role === 'manager' && view === 'review_form' && <ReviewForm audit={selectedAudit} onBack={() => setView('dashboard')} onSubmitReview={handleReviewSubmit} />}
+
                             {showRedeemPanel && <RedemptionPanel allUsers={usersData} onRedeem={handleRedeem} onClose={() => setShowRedeemPanel(false)} />}
                             {showSuccessModal && (
                                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] animate-fade-in backdrop-blur-sm">
