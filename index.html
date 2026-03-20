@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1428a0">
     <meta name="format-detection" content="telephone=no">
 
-    <title>三星門市稽核系統 (v4.9 Analytics & UX)</title>
+    <title>三星門市稽核系統 (v4.9)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -74,11 +74,12 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- Config Data ---
-        const YOUR_DEPLOY_ID = "AKfycbz2ZjGBlt-3M_eAVjnoJRMS0I_i8Vd9KkJfpIMVRhcYnM_wBIGR6YhxjsbPxH64nqP6";
+        // 更新為最新的部署 ID
+        const YOUR_DEPLOY_ID = "AKfycbxX-bld2whNuQ3AFryI_l2psBLaGDo7pYqL1zZIiHIVtPpsp3WJiFxVwq5re2uuIR2p";
         const DEFAULT_API_URL = `https://script.google.com/macros/s/${YOUR_DEPLOY_ID}/exec`;
         const MANAGER_PASSWORD = "5444";
 
-        const STORE_MAP_URL = "https://raw.githubusercontent.com/andyhhsu/breeze-audit-/main/213020.jpg"; 
+        const STORE_MAP_URL = "https://raw.githubusercontent.com/andyhhsu/breeze-audit-/main/20260315_172104.jpg"; 
 
         const ZONES = [
             { id: 'A', name: 'A 區', icon: 'fa-a' },
@@ -87,6 +88,7 @@
             { id: 'D', name: 'D 區', icon: 'fa-d' },
             { id: 'E', name: 'E 區', icon: 'fa-e' },
             { id: 'F', name: 'F 區', icon: 'fa-f' },
+            { id: 'G', name: 'G 區', icon: 'fa-g' },
         ];
 
         const CHECK_ITEMS_TEMPLATE = [
@@ -114,7 +116,7 @@
 
         // --- Helper Functions ---
         
-        // 播放成功音效 (Web Audio API，無須外部檔案)
+        // 播放成功音效
         const playSuccessSound = () => {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -124,7 +126,6 @@
                 gainNode.connect(ctx.destination);
                 osc.type = 'sine';
                 
-                // 產生一個清脆的雙音和弦 (C5 -> G5) 類似金幣聲
                 osc.frequency.setValueAtTime(523.25, ctx.currentTime); 
                 osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.1); 
                 
@@ -195,7 +196,6 @@
 
         // --- Components ---
 
-        // 骨架屏載入元件 (Skeleton Loading)
         const SkeletonList = () => (
             <div className="space-y-4 p-4">
                 {[1, 2, 3].map(i => (
@@ -258,6 +258,7 @@
             const [role, setRole] = useState('staff');
             const [password, setPassword] = useState('');
             const [localUrl, setLocalUrl] = useState(apiUrl || DEFAULT_API_URL);
+            const [showGuide, setShowGuide] = useState(false);
 
             useEffect(() => {
                 const savedName = localStorage.getItem('samsung_audit_username');
@@ -287,7 +288,7 @@
                 localStorage.setItem('samsung_audit_userrole', role);
                 if (!apiUrl) setApiUrl(localUrl);
                 
-                playSuccessSound(); // Play sound on login
+                playSuccessSound();
                 onLogin(cleanName, role);
             };
 
@@ -297,7 +298,7 @@
                         <div className="text-center mb-8">
                             <div className="bg-samsung-blue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg">S</div>
                             <h1 className="text-2xl font-bold text-gray-800 tracking-tight">微風南山稽核系統</h1>
-                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.9 (Analytics+UX)</p>
+                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.9</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
@@ -350,8 +351,39 @@
                             >
                                 登入系統
                             </button>
+
+                            <div className="flex justify-center mt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowGuide(true)}
+                                    className="text-gray-400 hover:text-samsung-blue transition-colors flex items-center gap-2 text-sm"
+                                >
+                                    <i className="fa-regular fa-circle-question text-lg"></i>
+                                    <span>快速上手指南</span>
+                                </button>
+                            </div>
                         </form>
                     </div>
+
+                    {/* Guide Modal */}
+                    {showGuide && (
+                        <div className="fixed inset-0 bg-black/90 z-[120] flex items-center justify-center p-4 animate-fade-in backdrop-blur-sm" onClick={() => setShowGuide(false)}>
+                            <div className="relative w-full max-w-lg max-h-[90vh] overflow-auto rounded-lg">
+                                <img 
+                                    src="https://raw.githubusercontent.com/andyhhsu/breeze-audit-/main/%E4%B8%89%E6%98%9F%E5%BE%AE%E9%A2%A8%E5%8D%97%E5%B1%B1-%E6%95%B8%E4%BD%8D%E7%A8%BD%E6%A0%B8%E5%BF%AB%E9%80%9F%E6%8C%87%E5%8D%97.jpg" 
+                                    className="w-full h-auto shadow-2xl scale-in rounded-lg" 
+                                    onClick={(e) => e.stopPropagation()} 
+                                    alt="使用指南"
+                                />
+                                <button 
+                                    className="absolute top-3 right-3 text-gray-800 w-8 h-8 flex items-center justify-center bg-white/90 rounded-full shadow-lg" 
+                                    onClick={() => setShowGuide(false)}
+                                >
+                                    <i className="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -811,7 +843,7 @@
             );
         };
 
-        // NEW: Analytics Dashboard Component
+        // Analytics Dashboard Component
         const AnalyticsDashboard = ({ audits }) => {
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
@@ -832,7 +864,7 @@
 
                 const topFails = Object.entries(failCounts)
                     .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5); // Top 5
+                    .slice(0, 5);
 
                 // Calculate Mystery Avg Score
                 const totalScore = mysteryAudits.reduce((sum, a) => sum + (Number(a.score) || 0), 0);
@@ -857,7 +889,7 @@
                             datasets: [{
                                 label: '被駁回次數',
                                 data: analyticsData.topFails.map(d => d[1]),
-                                backgroundColor: 'rgba(239, 68, 68, 0.8)', // red-500
+                                backgroundColor: 'rgba(239, 68, 68, 0.8)',
                                 borderRadius: 6,
                             }]
                         },
@@ -866,7 +898,7 @@
                             maintainAspectRatio: false,
                             plugins: {
                                 legend: { display: false },
-                                tooltip: { callbacks: { title: (ctx) => analyticsData.topFails[ctx[0].dataIndex][0] } } // Show full title on hover
+                                tooltip: { callbacks: { title: (ctx) => analyticsData.topFails[ctx[0].dataIndex][0] } }
                             },
                             scales: {
                                 y: { beginAtZero: true, ticks: { stepSize: 1 } },
@@ -1256,7 +1288,7 @@
                 try {
                     const res = await callApi(apiUrl, 'submitAudit', { audit: auditData });
                     if (res.success) {
-                        playSuccessSound(); // 提交成功音效
+                        playSuccessSound(); 
                         setModalMsg('+10 點數已入帳！\n待檢核人員複查。');
                         setShowSuccessModal(true);
                         refreshData();
@@ -1277,7 +1309,7 @@
                 try {
                     const res = await callApi(apiUrl, 'submitReview', { audit: reviewedAudit });
                     if (res.success) {
-                        if(reviewedAudit.penalty === 0) playSuccessSound(); // 無扣分才放成功音效
+                        if(reviewedAudit.penalty === 0) playSuccessSound(); 
                         setModalMsg(reviewedAudit.penalty > 0 ? `已扣除 ${reviewedAudit.penalty} 點。` : '複查完成。');
                         setShowSuccessModal(true);
                         setTimeout(() => {
@@ -1296,7 +1328,7 @@
                 try {
                     const res = await callApi(apiUrl, 'redeem', { name: userName, amount });
                     if (res.success) {
-                        playSuccessSound(); // 兌換成功音效
+                        playSuccessSound(); 
                         setModalMsg(`兌換成功！\n扣除 ${amount} 點。`);
                         setShowRedeemPanel(false);
                         setShowSuccessModal(true);
