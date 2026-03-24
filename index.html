@@ -6,10 +6,10 @@
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#1428a0">
+    <meta name="theme-color" content="#1e293b">
     <meta name="format-detection" content="telephone=no">
 
-    <title>三星門市稽核系統 (v4.9)</title>
+    <title>三星門市稽核系統 (v5.0 UI/UX旗艦版)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -22,7 +22,7 @@
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f3f4f6;
+            background-color: #f8fafc;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
             -webkit-user-select: none;
@@ -34,11 +34,13 @@
         .bg-samsung-blue { background-color: #1428a0; }
         .scale-in { animation: scaleIn 0.2s ease-out; }
         .pulse-logo { animation: pulseLogo 1.5s infinite ease-in-out; }
+        
         @keyframes pulseLogo { 
             0% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.1); opacity: 0.8; }
             100% { transform: scale(1); opacity: 1; }
         }
+        
         .dots::after {
             content: '.';
             animation: dots 1.5s steps(5, end) infinite;
@@ -50,20 +52,38 @@
             80%, 100% { content: ''; }
         }
         @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .progress-bar { transition: width 0.3s ease-in-out; }
+        
+        .progress-bar { transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         html { scroll-behavior: smooth; }
         
         /* Skeleton Loading Animation */
         .skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
             background-size: 200% 100%;
             animation: skeletonLoading 1.5s infinite;
         }
         @keyframes skeletonLoading {
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
+        }
+
+        /* Ambient Blobs Animation */
+        .animate-blob {
+            animation: blob 7s infinite;
+        }
+        .animation-delay-2000 {
+            animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+            animation-delay: 4s;
+        }
+        @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
         }
     </style>
 </head>
@@ -74,7 +94,6 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- Config Data ---
-        // 更新為最新的部署 ID
         const YOUR_DEPLOY_ID = "AKfycbxX-bld2whNuQ3AFryI_l2psBLaGDo7pYqL1zZIiHIVtPpsp3WJiFxVwq5re2uuIR2p";
         const DEFAULT_API_URL = `https://script.google.com/macros/s/${YOUR_DEPLOY_ID}/exec`;
         const MANAGER_PASSWORD = "5444";
@@ -137,25 +156,42 @@
             } catch(e) { console.log("Audio not supported"); }
         };
 
+        // 震動回饋 (Haptic Feedback)
+        const triggerVibration = (pattern = 50) => {
+            try {
+                if (navigator.vibrate) navigator.vibrate(pattern);
+            } catch(e) { /* Ignore on unsupported devices */ }
+        };
+
+        // 取得動態下午問候語
+        const getDynamicGreeting = () => {
+            const days = ['日', '一', '二', '三', '四', '五', '六'];
+            const today = new Date().getDay();
+            const dayStr = `星期${days[today]}`;
+            
+            const quotes = [
+                "準備好今天的挑戰了嗎？🚀",
+                "保持完美展機，從細節開始！✨",
+                "喝口水，讓我們快速完成今天的確認。💪",
+                "用最高標準，迎接每一位顧客。🌟",
+                "細節決定成敗，今天也辛苦了！🔍",
+                "點數等著你，快速通關今天的稽核吧！🎯"
+            ];
+            const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+            return `${dayStr}下午好！\n${randomQuote}`;
+        };
+
         const parseAndFormatDate = (input) => {
             if (!input) return '--/-- --:--';
             let dateObj;
             const d = new Date(input);
-            if (!isNaN(d.getTime())) {
-                dateObj = d;
-            } else {
+            if (!isNaN(d.getTime())) { dateObj = d; } else {
                 if (typeof input === 'string' && input.includes('/')) {
                     const parts = input.split(' ');
                     const dateParts = parts[0].split('/');
                     const timeParts = parts[1] ? parts[1].split(':') : ['00', '00'];
                     if (dateParts.length === 3) {
-                        dateObj = new Date(
-                            parseInt(dateParts[0]), 
-                            parseInt(dateParts[1]) - 1, 
-                            parseInt(dateParts[2]),
-                            parseInt(timeParts[0]), 
-                            parseInt(timeParts[1])
-                        );
+                        dateObj = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]), parseInt(timeParts[0]), parseInt(timeParts[1]));
                     }
                 }
             }
@@ -196,10 +232,19 @@
 
         // --- Components ---
 
+        // 環境背景光暈組件
+        const AmbientBackground = () => (
+            <div className="fixed inset-0 z-[0] overflow-hidden pointer-events-none">
+                <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
+                <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-indigo-400/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
+                <div className="absolute bottom-[-20%] left-[20%] w-96 h-96 bg-purple-400/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
+            </div>
+        );
+
         const SkeletonList = () => (
-            <div className="space-y-4 p-4">
+            <div className="space-y-4 p-4 relative z-10">
                 {[1, 2, 3].map(i => (
-                    <div key={i} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-center justify-between">
+                    <div key={i} className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-white/60 shadow-sm flex items-center justify-between">
                         <div className="flex items-center gap-3 w-full">
                             <div className="w-10 h-10 rounded-full skeleton flex-shrink-0"></div>
                             <div className="space-y-2 w-full">
@@ -213,14 +258,14 @@
         );
 
         const LoadingOverlay = ({ message }) => (
-            <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center backdrop-blur-md animate-fade-in">
-                <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-[280px] w-full transform transition-all scale-in">
-                    <div className="w-16 h-16 bg-samsung-blue rounded-full flex items-center justify-center mb-6 shadow-lg shadow-blue-500/30 pulse-logo relative">
+            <div className="fixed inset-0 bg-slate-900/40 z-[100] flex items-center justify-center backdrop-blur-md animate-fade-in">
+                <div className="bg-white/90 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-white/50 flex flex-col items-center max-w-[280px] w-full transform transition-all scale-in">
+                    <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-blue-500/30 pulse-logo relative">
                         <i className="fa-solid fa-cloud text-white text-2xl"></i>
-                        <div className="absolute inset-0 border-4 border-blue-200 rounded-full opacity-30 animate-ping"></div>
+                        <div className="absolute inset-0 border-4 border-blue-300 rounded-full opacity-30 animate-ping"></div>
                     </div>
-                    <h3 className="font-bold text-gray-800 text-lg mb-2">處理中<span className="dots"></span></h3>
-                    <p className="text-gray-500 text-xs text-center leading-relaxed font-medium">
+                    <h3 className="font-bold text-slate-800 text-lg mb-2">處理中<span className="dots"></span></h3>
+                    <p className="text-slate-500 text-xs text-center leading-relaxed font-medium">
                         {message || '正在同步資料...'}
                     </p>
                 </div>
@@ -230,23 +275,13 @@
         const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
             if (!isOpen) return null;
             return (
-                <div className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center backdrop-blur-sm animate-fade-in px-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 scale-in">
-                        <h3 className="text-lg font-bold text-gray-800 mb-2">{title}</h3>
-                        <p className="text-gray-600 text-sm mb-6 leading-relaxed">{message}</p>
+                <div className="fixed inset-0 bg-slate-900/50 z-[110] flex items-center justify-center backdrop-blur-sm animate-fade-in px-4">
+                    <div className="bg-white/95 backdrop-blur-xl border border-white/50 rounded-3xl shadow-2xl max-w-sm w-full p-6 scale-in">
+                        <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
+                        <p className="text-slate-600 text-sm mb-6 leading-relaxed">{message}</p>
                         <div className="flex gap-3">
-                            <button 
-                                onClick={onCancel}
-                                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold active:bg-gray-50 transition"
-                            >
-                                取消
-                            </button>
-                            <button 
-                                onClick={onConfirm}
-                                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold shadow-lg shadow-red-200 active:bg-red-600 transition"
-                            >
-                                確認
-                            </button>
+                            <button onClick={onCancel} className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-bold active:bg-slate-50 transition hover:bg-slate-50">取消</button>
+                            <button onClick={() => { triggerVibration(); onConfirm(); }} className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold shadow-lg shadow-red-500/30 active:scale-95 transition">確認</button>
                         </div>
                     </div>
                 </div>
@@ -278,7 +313,7 @@
                 e.preventDefault();
                 let cleanName = name.trim();
                 if (role === 'manager') {
-                    if (password !== MANAGER_PASSWORD) { alert("檢核人員密碼錯誤！"); return; }
+                    if (password !== MANAGER_PASSWORD) { triggerVibration([100, 50, 100]); alert("檢核人員密碼錯誤！"); return; }
                     cleanName = "檢核人員";
                 } else {
                     if (!cleanName) return;
@@ -288,26 +323,31 @@
                 localStorage.setItem('samsung_audit_userrole', role);
                 if (!apiUrl) setApiUrl(localUrl);
                 
+                triggerVibration();
                 playSuccessSound();
                 onLogin(cleanName, role);
             };
 
             return (
-                <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl scale-in">
+                <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+                    {/* Dark Mode Blobs for Login */}
+                    <div className="absolute top-[-20%] left-[-10%] w-96 h-96 bg-blue-600/30 rounded-full mix-blend-screen filter blur-[100px] animate-blob"></div>
+                    <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600/30 rounded-full mix-blend-screen filter blur-[100px] animate-blob animation-delay-2000"></div>
+
+                    <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-8 w-full max-w-sm shadow-2xl scale-in relative z-10">
                         <div className="text-center mb-8">
-                            <div className="bg-samsung-blue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg">S</div>
-                            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">微風南山稽核系統</h1>
-                            <p className="text-gray-500 text-sm mt-2">Mobile Version 4.9</p>
+                            <div className="bg-gradient-to-tr from-blue-500 to-indigo-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg shadow-blue-500/30">S</div>
+                            <h1 className="text-2xl font-bold text-white tracking-tight">微風南山稽核系統</h1>
+                            <p className="text-blue-200/70 text-sm mt-2 font-medium tracking-wide">Mobile Version 5.0</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1.5">您的姓名 {role === 'manager' && "(檢核人員免填)"}</label>
+                                <label className="block text-sm font-medium text-slate-300 mb-1.5">您的姓名 {role === 'manager' && "(檢核人員免填)"}</label>
                                 <input 
                                     type="text" 
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base shadow-sm transition-all"
+                                    className="w-full p-4 bg-slate-800/50 border border-slate-700/50 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-white shadow-inner transition-all placeholder-slate-500"
                                     placeholder={role === 'manager' ? "系統自動登錄" : "例如：王小明"}
                                     disabled={role === 'manager'}
                                     style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
@@ -317,15 +357,15 @@
                             <div className="grid grid-cols-2 gap-3">
                                 <button 
                                     type="button"
-                                    onClick={() => setRole('staff')}
-                                    className={`p-4 rounded-xl border text-sm font-bold transition-all active:scale-95 ${role === 'staff' ? 'bg-blue-50 border-blue-500 text-blue-700 ring-2 ring-blue-200' : 'border-gray-200 text-gray-500 bg-gray-50'}`}
+                                    onClick={() => { triggerVibration(); setRole('staff'); }}
+                                    className={`p-4 rounded-2xl border text-sm font-bold transition-all active:scale-95 ${role === 'staff' ? 'bg-blue-500/20 border-blue-400 text-blue-300 shadow-[inset_0_0_15px_rgba(59,130,246,0.2)]' : 'border-slate-700/50 text-slate-400 hover:bg-slate-800/50'}`}
                                 >
                                     <i className="fa-solid fa-user mr-2"></i>我是店員
                                 </button>
                                 <button 
                                     type="button"
-                                    onClick={() => setRole('manager')}
-                                    className={`p-4 rounded-xl border text-sm font-bold transition-all active:scale-95 ${role === 'manager' ? 'bg-gray-800 border-gray-800 text-white ring-2 ring-gray-400' : 'border-gray-200 text-gray-500 bg-gray-50'}`}
+                                    onClick={() => { triggerVibration(); setRole('manager'); }}
+                                    className={`p-4 rounded-2xl border text-sm font-bold transition-all active:scale-95 ${role === 'manager' ? 'bg-indigo-500/20 border-indigo-400 text-indigo-300 shadow-[inset_0_0_15px_rgba(99,102,241,0.2)]' : 'border-slate-700/50 text-slate-400 hover:bg-slate-800/50'}`}
                                 >
                                     <i className="fa-solid fa-user-tie mr-2"></i>檢核人員
                                 </button>
@@ -333,31 +373,24 @@
 
                             {role === 'manager' && (
                                 <div className="animate-fade-in">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">檢核人員密碼</label>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1.5">檢核人員密碼</label>
                                     <input 
                                         type="password" 
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-800 outline-none text-base shadow-sm"
+                                        className="w-full p-4 bg-slate-800/50 border border-slate-700/50 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-white shadow-inner placeholder-slate-500"
                                         placeholder="請輸入密碼"
                                         style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
                                     />
                                 </div>
                             )}
 
-                            <button 
-                                type="submit"
-                                className={`w-full text-white py-4 rounded-xl font-bold shadow-lg transition transform active:scale-95 bg-samsung-blue hover:bg-blue-800 text-lg`}
-                            >
+                            <button type="submit" className="w-full text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-500/40 transition-all transform active:scale-95 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-lg">
                                 登入系統
                             </button>
 
-                            <div className="flex justify-center mt-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowGuide(true)}
-                                    className="text-gray-400 hover:text-samsung-blue transition-colors flex items-center gap-2 text-sm"
-                                >
+                            <div className="flex justify-center mt-4">
+                                <button type="button" onClick={() => { triggerVibration(); setShowGuide(true); }} className="text-slate-400 hover:text-blue-300 transition-colors flex items-center gap-2 text-sm bg-slate-800/50 px-4 py-2 rounded-full border border-slate-700/50">
                                     <i className="fa-regular fa-circle-question text-lg"></i>
                                     <span>快速上手指南</span>
                                 </button>
@@ -365,21 +398,12 @@
                         </form>
                     </div>
 
-                    {/* Guide Modal */}
                     {showGuide && (
-                        <div className="fixed inset-0 bg-black/90 z-[120] flex items-center justify-center p-4 animate-fade-in backdrop-blur-sm" onClick={() => setShowGuide(false)}>
-                            <div className="relative w-full max-w-lg max-h-[90vh] overflow-auto rounded-lg">
-                                <img 
-                                    src="https://raw.githubusercontent.com/andyhhsu/breeze-audit-/main/%E4%B8%89%E6%98%9F%E5%BE%AE%E9%A2%A8%E5%8D%97%E5%B1%B1-%E6%95%B8%E4%BD%8D%E7%A8%BD%E6%A0%B8%E5%BF%AB%E9%80%9F%E6%8C%87%E5%8D%97.jpg" 
-                                    className="w-full h-auto shadow-2xl scale-in rounded-lg" 
-                                    onClick={(e) => e.stopPropagation()} 
-                                    alt="使用指南"
-                                />
-                                <button 
-                                    className="absolute top-3 right-3 text-gray-800 w-8 h-8 flex items-center justify-center bg-white/90 rounded-full shadow-lg" 
-                                    onClick={() => setShowGuide(false)}
-                                >
-                                    <i className="fa-solid fa-xmark"></i>
+                        <div className="fixed inset-0 bg-slate-900/90 z-[120] flex items-center justify-center p-4 animate-fade-in backdrop-blur-sm" onClick={() => setShowGuide(false)}>
+                            <div className="relative w-full max-w-lg max-h-[90vh] overflow-auto rounded-2xl">
+                                <img src="https://raw.githubusercontent.com/andyhhsu/breeze-audit-/main/%E4%B8%89%E6%98%9F%E5%BE%AE%E9%A2%A8%E5%8D%97%E5%B1%B1-%E6%95%B8%E4%BD%8D%E7%A8%BD%E6%A0%B8%E5%BF%AB%E9%80%9F%E6%8C%87%E5%8D%97.jpg" className="w-full h-auto shadow-2xl scale-in rounded-2xl" onClick={(e) => e.stopPropagation()} alt="使用指南"/>
+                                <button className="absolute top-4 right-4 text-slate-800 w-10 h-10 flex items-center justify-center bg-white/90 backdrop-blur rounded-full shadow-lg active:scale-90" onClick={() => setShowGuide(false)}>
+                                    <i className="fa-solid fa-xmark text-lg"></i>
                                 </button>
                             </div>
                         </div>
@@ -389,29 +413,29 @@
         };
 
         const Header = ({ currentUser, onLogout, onRefresh }) => (
-            <div className="bg-black text-white px-4 py-3 sticky top-0 z-50 shadow-md">
+            <div className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 text-white px-4 py-3 sticky top-0 z-50">
                 <div className="flex justify-between items-center max-w-md mx-auto">
                     <div className="flex items-center gap-3">
-                        <div className="bg-samsung-blue w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shadow-inner border border-blue-400">
+                        <div className="bg-gradient-to-tr from-blue-500 to-indigo-500 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-inner shadow-white/20 border border-white/10">
                             {currentUser.name[0]}
                         </div>
                         <div className="flex flex-col">
                             <span className="font-bold text-sm tracking-wide leading-tight">{currentUser.name}</span>
-                            <span className="text-[10px] text-gray-400 uppercase font-medium">{currentUser.role === 'staff' ? 'Staff' : 'Inspector'}</span>
+                            <span className="text-[10px] text-blue-300 uppercase font-bold tracking-wider">{currentUser.role === 'staff' ? 'Staff' : 'Inspector'}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button onClick={onRefresh} className="w-8 h-8 flex items-center justify-center rounded-full active:bg-gray-800 transition">
-                             <i className="fa-solid fa-rotate-right text-gray-400"></i>
+                        <button onClick={() => { triggerVibration(); onRefresh(); }} className="w-8 h-8 flex items-center justify-center rounded-full active:bg-slate-800 transition">
+                             <i className="fa-solid fa-rotate-right text-slate-400"></i>
                         </button>
                         {currentUser.role === 'staff' && (
-                            <div className="flex items-center gap-1.5 bg-gray-800 pl-3 pr-4 py-1.5 rounded-full text-sm border border-gray-700 shadow-sm">
-                                <i className="fa-solid fa-star text-yellow-400 text-xs"></i>
-                                <span className="font-bold font-mono">{currentUser.points}</span>
+                            <div className="flex items-center gap-1.5 bg-slate-800/80 pl-3 pr-4 py-1.5 rounded-full text-sm border border-slate-700 shadow-inner">
+                                <i className="fa-solid fa-star text-amber-400 text-xs drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]"></i>
+                                <span className="font-bold font-mono text-amber-50">{currentUser.points}</span>
                             </div>
                         )}
-                        <button onClick={onLogout} className="w-8 h-8 flex items-center justify-center rounded-full active:bg-gray-800 transition">
-                            <i className="fa-solid fa-right-from-bracket text-gray-400"></i>
+                        <button onClick={() => { triggerVibration(); onLogout(); }} className="w-8 h-8 flex items-center justify-center rounded-full active:bg-slate-800 transition">
+                            <i className="fa-solid fa-right-from-bracket text-slate-400"></i>
                         </button>
                     </div>
                 </div>
@@ -436,125 +460,38 @@
             }, [allUsers]);
 
             const renderRankIcon = (rank) => {
-                if (rank === 1) return <i className="fa-solid fa-trophy text-yellow-400 text-xl"></i>;
-                if (rank === 2) return <i className="fa-solid fa-medal text-gray-400 text-xl"></i>;
-                if (rank === 3) return <i className="fa-solid fa-medal text-orange-600 text-xl"></i>;
-                return <span className="font-bold text-gray-400 text-sm w-5 text-center">{rank}</span>;
+                if (rank === 1) return <i className="fa-solid fa-trophy text-amber-400 text-2xl drop-shadow-md"></i>;
+                if (rank === 2) return <i className="fa-solid fa-medal text-slate-300 text-2xl drop-shadow-md"></i>;
+                if (rank === 3) return <i className="fa-solid fa-medal text-amber-700 text-2xl drop-shadow-md"></i>;
+                return <span className="font-extrabold text-slate-300 text-lg w-6 text-center">{rank}</span>;
             };
 
             return (
-                <div className="space-y-3">
-                    <div className="text-xs text-center text-gray-400 mb-2">
-                        <i className="fa-solid fa-circle-info mr-1"></i> 
+                <div className="space-y-3 relative z-10">
+                    <div className="text-xs text-center text-slate-500 mb-3 bg-white/50 backdrop-blur rounded-full py-1.5 px-3 mx-auto w-fit border border-white/60 shadow-sm">
+                        <i className="fa-solid fa-circle-info mr-1.5 text-blue-500"></i> 
                         排名依據：榮譽積分 (不受兌換影響)
                     </div>
                     {leaderboardData.length === 0 ? (
-                        <div className="text-center py-16 text-gray-400"><p>目前無人員資料</p></div>
+                        <div className="text-center py-16 text-slate-400"><p>目前無人員資料</p></div>
                     ) : (
                         leaderboardData.map((user) => (
-                            <div key={user.name} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between transition-all hover:shadow-md">
+                            <div key={user.name} className="bg-white/80 backdrop-blur-md rounded-3xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-white/60 flex items-center justify-between transition-all hover:shadow-md">
                                 <div className="flex items-center gap-4">
                                     <div className="w-8 flex justify-center">{renderRankIcon(user.rank)}</div>
                                     <div className="flex flex-col">
-                                        <span className="font-bold text-gray-800">{user.name}</span>
-                                        <span className="text-xs text-gray-400">Staff</span>
+                                        <span className="font-bold text-slate-800 text-lg">{user.name}</span>
+                                        <span className="text-xs text-slate-400 font-medium tracking-wide">Staff</span>
                                     </div>
                                 </div>
-                                <div className="flex flex-col items-end">
-                                    <div className="font-bold font-mono text-samsung-blue bg-blue-50 px-3 py-1 rounded-full text-sm">
-                                        {user.points} <span className="text-xs">現有</span>
+                                <div className="flex flex-col items-end gap-1">
+                                    <div className="font-bold font-mono text-blue-600 bg-blue-50/80 px-3 py-1 rounded-xl text-sm border border-blue-100">
+                                        {user.points} <span className="text-[10px] text-blue-400 uppercase">Pts</span>
                                     </div>
-                                    <span className="text-[10px] text-gray-400 mt-1">榮譽: {user.lifetimePoints}</span>
+                                    <span className="text-[10px] text-slate-400 font-bold bg-slate-100/80 px-2 py-0.5 rounded-lg border border-slate-200">榮譽: {user.lifetimePoints}</span>
                                 </div>
                             </div>
                         ))
-                    )}
-                </div>
-            );
-        }
-
-        const StaffDashboard = ({ onSelectZone, onSelectMystery, onShowLeaderboard }) => {
-            const [showMapModal, setShowMapModal] = useState(false);
-
-            return (
-                <div className="p-4 max-w-md mx-auto scale-in pb-32">
-                    <div className="grid grid-cols-2 gap-3 mb-6">
-                        <button 
-                            onClick={onSelectMystery}
-                            className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white p-4 rounded-2xl shadow-lg flex flex-col justify-between h-32 group active:scale-95 transition-all relative overflow-hidden"
-                        >
-                            <div className="absolute right-0 top-0 w-20 h-20 bg-white/10 rounded-full -mr-6 -mt-6"></div>
-                            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl backdrop-blur-sm">
-                                <i className="fa-solid fa-user-secret"></i>
-                            </div>
-                            <div className="text-left z-10">
-                                <h3 className="font-bold text-lg">神秘客訓練</h3>
-                                <p className="text-blue-100 text-xs mt-1">雙人協作 • 缺失計數</p>
-                            </div>
-                        </button>
-
-                        <button 
-                            onClick={onShowLeaderboard}
-                            className="bg-gradient-to-br from-yellow-400 to-orange-500 text-white p-4 rounded-2xl shadow-lg flex flex-col justify-between h-32 group active:scale-95 transition-all relative overflow-hidden"
-                        >
-                             <div className="absolute right-0 top-0 w-20 h-20 bg-white/10 rounded-full -mr-6 -mt-6"></div>
-                            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl backdrop-blur-sm">
-                                <i className="fa-solid fa-trophy"></i>
-                            </div>
-                            <div className="text-left z-10">
-                                <h3 className="font-bold text-lg">榮譽排行榜</h3>
-                                <p className="text-yellow-100 text-xs mt-1">查看團隊排名</p>
-                            </div>
-                        </button>
-                    </div>
-
-                    <h2 className="text-xl font-bold mb-4 text-gray-800 ml-1">區域稽核 (Audit)</h2>
-                    <div className="grid grid-cols-2 gap-4">
-                        {ZONES.map(zone => (
-                            <button 
-                                key={zone.id}
-                                onClick={() => onSelectZone(zone)}
-                                className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-3 active:scale-95 active:bg-gray-50 transition-all duration-150"
-                            >
-                                <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center text-samsung-blue text-2xl font-bold shadow-inner">
-                                    {zone.id}
-                                </div>
-                                <span className="font-bold text-gray-700">{zone.name}</span>
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="mt-8 mb-4">
-                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div className="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">門市分區展圖 (點擊放大)</span>
-                                <i className="fa-solid fa-map-location-dot text-gray-400"></i>
-                            </div>
-                            <div className="relative group cursor-zoom-in" onClick={() => setShowMapModal(true)}>
-                                <img 
-                                    src={STORE_MAP_URL} 
-                                    alt="Store Map" 
-                                    className="w-full h-auto"
-                                    onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/800x400/e2e8f0/94a3b8?text=Image+Not+Found"; }}
-                                />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none"></div>
-                                <div className="absolute bottom-2 right-2 bg-black/50 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                    <i className="fa-solid fa-expand text-sm"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {showMapModal && (
-                        <div className="fixed inset-0 bg-black/90 z-[120] flex items-center justify-center p-4 animate-fade-in backdrop-blur-sm" onClick={(e) => {
-                            e.stopPropagation();
-                            setShowMapModal(false);
-                        }}>
-                            <img src={STORE_MAP_URL} className="max-w-full max-h-full rounded-lg shadow-2xl scale-in" onClick={(e) => e.stopPropagation()} />
-                            <button className="absolute top-4 right-4 text-white w-10 h-10 flex items-center justify-center bg-gray-800/50 rounded-full" onClick={() => setShowMapModal(false)}>
-                                <i className="fa-solid fa-xmark"></i>
-                            </button>
-                        </div>
                     )}
                 </div>
             );
@@ -562,17 +499,101 @@
 
         const StaffLeaderboardView = ({ allUsers, onBack, isInitialLoading }) => {
             return (
-                <div className="pb-32 max-w-md mx-auto scale-in">
-                    <div className="sticky top-[60px] bg-white/95 backdrop-blur-md z-40 border-b shadow-sm transition-all">
+                <div className="pb-36 max-w-md mx-auto scale-in pb-safe relative z-10">
+                    <div className="sticky top-[60px] bg-white/70 backdrop-blur-xl z-40 border-b border-white/50 shadow-sm transition-all">
                         <div className="p-4 flex items-center gap-4">
-                            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 active:bg-gray-200">
+                            <button onClick={() => { triggerVibration(); onBack(); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-slate-600 shadow-sm border border-slate-100 active:scale-90 transition">
                                 <i className="fa-solid fa-arrow-left text-lg"></i>
                             </button>
-                            <h2 className="font-bold text-lg text-gray-800">榮譽排行榜</h2>
+                            <h2 className="font-bold text-lg text-slate-800 tracking-wide">榮譽排行榜</h2>
                         </div>
                     </div>
                     {isInitialLoading ? <SkeletonList /> : (
                         <div className="p-4"><LeaderboardList allUsers={allUsers} /></div>
+                    )}
+                </div>
+            );
+        };
+
+        const StaffDashboard = ({ onSelectZone, onSelectMystery, onShowLeaderboard, currentUser }) => {
+            const [showMapModal, setShowMapModal] = useState(false);
+            const [greetingText, setGreetingText] = useState("");
+
+            useEffect(() => {
+                setGreetingText(getDynamicGreeting());
+            }, []);
+
+            return (
+                <div className="p-4 max-w-md mx-auto scale-in pb-32 relative z-10">
+                    
+                    {/* 溫暖問候區塊 */}
+                    <div className="mb-6 px-1">
+                        <p className="text-slate-500 text-sm font-bold tracking-wide uppercase mb-1">HELLO, {currentUser?.name}</p>
+                        <h2 className="text-xl font-extrabold text-slate-800 whitespace-pre-line leading-snug">{greetingText}</h2>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mb-8">
+                        <button onClick={() => { triggerVibration(); onSelectMystery(); }} className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-5 rounded-3xl shadow-lg shadow-purple-500/20 flex flex-col justify-between h-36 group active:scale-95 transition-all relative overflow-hidden border border-white/20">
+                            <div className="absolute right-0 top-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-2xl backdrop-blur-md shadow-inner">
+                                <i className="fa-solid fa-user-secret drop-shadow"></i>
+                            </div>
+                            <div className="text-left z-10 mt-auto">
+                                <h3 className="font-bold text-lg drop-shadow-sm">神秘客訓練</h3>
+                                <p className="text-purple-100 text-[10px] mt-0.5 uppercase tracking-wider font-bold opacity-80">雙人協作</p>
+                            </div>
+                        </button>
+
+                        <button onClick={() => { triggerVibration(); onShowLeaderboard(); }} className="bg-gradient-to-br from-amber-400 to-orange-500 text-white p-5 rounded-3xl shadow-lg shadow-amber-500/20 flex flex-col justify-between h-36 group active:scale-95 transition-all relative overflow-hidden border border-white/20">
+                             <div className="absolute right-0 top-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-2xl backdrop-blur-md shadow-inner">
+                                <i className="fa-solid fa-trophy drop-shadow"></i>
+                            </div>
+                            <div className="text-left z-10 mt-auto">
+                                <h3 className="font-bold text-lg drop-shadow-sm">榮譽排行榜</h3>
+                                <p className="text-amber-100 text-[10px] mt-0.5 uppercase tracking-wider font-bold opacity-80">團隊排名</p>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div className="flex items-center justify-between mb-4 ml-1">
+                        <h2 className="text-xl font-extrabold text-slate-800">區域稽核 <span className="text-slate-400 text-sm font-medium tracking-wide">Audit</span></h2>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                        {ZONES.map(zone => (
+                            <button key={zone.id} onClick={() => { triggerVibration(); onSelectZone(zone); }} className="bg-white/80 backdrop-blur-md p-5 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-white/60 flex flex-col items-center justify-center gap-3 active:scale-95 active:bg-slate-50 transition-all duration-200 hover:shadow-md">
+                                <div className="w-14 h-14 bg-gradient-to-tr from-blue-50 to-indigo-50 rounded-2xl flex items-center justify-center text-blue-600 text-2xl font-black shadow-inner border border-white">
+                                    {zone.id}
+                                </div>
+                                <span className="font-extrabold text-slate-700">{zone.name}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="mt-8 mb-4">
+                         <div className="bg-white/80 backdrop-blur-md rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-white/60 overflow-hidden p-1">
+                            <div className="p-3 px-4 flex justify-between items-center">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">門市分區展圖 (點擊放大)</span>
+                                <i className="fa-solid fa-map-location-dot text-slate-400"></i>
+                            </div>
+                            <div className="relative group cursor-zoom-in rounded-2xl overflow-hidden shadow-inner border border-slate-100" onClick={() => { triggerVibration(); setShowMapModal(true); }}>
+                                <img src={STORE_MAP_URL} alt="Store Map" className="w-full h-auto object-cover transform transition-transform duration-500 group-hover:scale-105" onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/800x400/f1f5f9/94a3b8?text=Image+Not+Found"; }} />
+                                <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors pointer-events-none"></div>
+                                <div className="absolute bottom-3 right-3 bg-slate-900/50 backdrop-blur text-white p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
+                                    <i className="fa-solid fa-expand text-sm"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {showMapModal && (
+                        <div className="fixed inset-0 bg-slate-900/95 z-[120] flex items-center justify-center p-4 animate-fade-in backdrop-blur-md" onClick={(e) => { e.stopPropagation(); setShowMapModal(false); }}>
+                            <img src={STORE_MAP_URL} className="max-w-full max-h-full rounded-2xl shadow-2xl scale-in" onClick={(e) => e.stopPropagation()} />
+                            <button className="absolute top-6 right-6 text-slate-800 w-12 h-12 flex items-center justify-center bg-white/90 backdrop-blur rounded-full shadow-xl active:scale-90 transition" onClick={() => { triggerVibration(); setShowMapModal(false); }}>
+                                <i className="fa-solid fa-xmark text-xl"></i>
+                            </button>
+                        </div>
                     )}
                 </div>
             );
@@ -604,7 +625,10 @@
             }, [results, note, isDraftLoaded, currentUser.name, zone.id]);
 
             const handleToggle = (itemId, status) => {
+                triggerVibration(); // 加入震動回饋
                 setResults(prev => ({ ...prev, [itemId]: { ...prev[itemId], status } }));
+                
+                // 自動滾動邏輯
                 const currentIndex = CHECK_ITEMS_TEMPLATE.findIndex(i => i.id === itemId);
                 if (currentIndex !== -1 && currentIndex < CHECK_ITEMS_TEMPLATE.length - 1) {
                     const nextNode = itemRefs.current[currentIndex + 1];
@@ -615,6 +639,7 @@
             };
 
             const handlePhoto = (itemId) => {
+                triggerVibration([30]);
                 setResults(prev => ({ ...prev, [itemId]: { ...prev[itemId], hasPhoto: !prev[itemId]?.hasPhoto } }));
             };
 
@@ -625,6 +650,7 @@
 
             const submitAudit = () => {
                 if (!isReadyToSubmit) return;
+                triggerVibration([50, 50, 50]);
                 const itemsPayload = CHECK_ITEMS_TEMPLATE.map(item => ({
                     ...item,
                     staffResult: results[item.id]?.status || 'fail',
@@ -645,78 +671,90 @@
             };
 
             return (
-                <div className="pb-32 max-w-md mx-auto bg-white min-h-screen scale-in pb-safe">
-                    <div className="sticky top-[60px] bg-white/95 backdrop-blur-md z-40 border-b shadow-sm transition-all">
+                <div className="pb-36 max-w-md mx-auto scale-in pb-safe relative z-10">
+                    {/* 頂部 Glassmorphism 導覽 */}
+                    <div className="sticky top-[60px] bg-white/70 backdrop-blur-xl z-40 border-b border-white/50 shadow-sm transition-all">
                         <div className="p-4 flex items-center gap-4">
-                            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 active:bg-gray-200">
+                            <button onClick={() => { triggerVibration(); onBack(); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-slate-600 shadow-sm border border-slate-100 active:scale-90 transition">
                                 <i className="fa-solid fa-arrow-left text-lg"></i>
                             </button>
                             <div className="flex-1">
                                 <div className="flex justify-between items-end mb-1.5">
-                                    <h2 className="font-bold text-lg text-gray-800">{zone.name}</h2>
-                                    <span className="text-xs font-bold text-samsung-blue bg-blue-50 px-2 py-0.5 rounded-md">{completedCount}/{totalCount}</span>
+                                    <h2 className="font-bold text-lg text-slate-800 tracking-wide">{zone.name} 稽核</h2>
+                                    <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-lg border border-blue-200 shadow-inner">{completedCount}/{totalCount}</span>
                                 </div>
-                                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                                    <div className="bg-samsung-blue h-2 rounded-full progress-bar shadow-[0_0_10px_rgba(20,40,160,0.3)]" style={{ width: `${progressPercent}%` }}></div>
+                                <div className="w-full bg-slate-200/50 rounded-full h-1.5 overflow-hidden shadow-inner">
+                                    <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-1.5 rounded-full progress-bar shadow-[0_0_10px_rgba(59,130,246,0.5)]" style={{ width: `${progressPercent}%` }}></div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="p-4 space-y-6">
+                    <div className="p-4 space-y-4">
                         {CHECK_ITEMS_TEMPLATE.map((item, index) => {
                             const itemState = results[item.id] || {};
+                            const isCompleted = !!itemState.status;
+                            
+                            // Visual Noise Reduction Style
+                            const cardBaseClass = "rounded-3xl p-5 transition-all duration-500 scroll-mt-48 relative overflow-hidden";
+                            const cardStyleClass = isCompleted 
+                                ? "bg-white/40 backdrop-blur-sm border border-transparent shadow-none opacity-60 scale-[0.98] grayscale-[20%]" 
+                                : "bg-white/90 backdrop-blur-lg border border-white shadow-[0_4px_20px_rgba(0,0,0,0.04)] opacity-100 scale-100";
+
                             return (
-                                <div key={item.id} ref={el => itemRefs.current[index] = el} className="border-b border-gray-100 pb-5 last:border-0 scroll-mt-48">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div className="pr-2">
+                                <div key={item.id} ref={el => itemRefs.current[index] = el} className={`${cardBaseClass} ${cardStyleClass}`}>
+                                    {isCompleted && itemState.status === 'pass' && <div className="absolute top-0 right-0 w-16 h-16 bg-green-400/10 rounded-bl-full -z-10"></div>}
+                                    {isCompleted && itemState.status === 'fail' && <div className="absolute top-0 right-0 w-16 h-16 bg-red-400/10 rounded-bl-full -z-10"></div>}
+                                    
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="pr-2 relative z-10">
                                             <div className="flex items-center gap-2 flex-wrap mb-1">
-                                                {item.isCritical && <span className="bg-red-50 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded border border-red-100">重點</span>}
-                                                <h3 className="font-bold text-gray-800 text-[15px]">{item.title}</h3>
+                                                {item.isCritical && <span className="bg-gradient-to-r from-red-500 to-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-sm shadow-red-500/30 tracking-wider">重點</span>}
+                                                <h3 className={`font-extrabold text-[15px] ${isCompleted ? 'text-slate-600' : 'text-slate-800'}`}>{item.title}</h3>
                                             </div>
-                                            <p className="text-sm text-gray-500 leading-snug">{item.desc}</p>
+                                            <p className={`text-xs leading-relaxed ${isCompleted ? 'text-slate-400' : 'text-slate-500'}`}>{item.desc}</p>
                                         </div>
                                         {item.requirePhoto && (
-                                            <button onClick={() => handlePhoto(item.id)} className={`flex-shrink-0 flex flex-col items-center justify-center w-11 h-11 rounded-full transition-all active:scale-90 ${itemState.hasPhoto ? 'bg-green-100 text-green-600 shadow-inner' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}>
-                                                <i className="fa-solid fa-camera"></i>
-                                                {itemState.hasPhoto && <i className="fa-solid fa-check text-[10px] absolute bg-white rounded-full p-0.5 border border-green-500 -bottom-1 -right-1"></i>}
+                                            <button onClick={() => handlePhoto(item.id)} className={`flex-shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all active:scale-90 relative z-10 ${itemState.hasPhoto ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>
+                                                <i className="fa-solid fa-camera text-lg"></i>
+                                                {itemState.hasPhoto && <i className="fa-solid fa-check text-[10px] absolute bg-white text-emerald-500 rounded-full p-0.5 border-2 border-emerald-500 -bottom-1 -right-1 font-black"></i>}
                                             </button>
                                         )}
                                     </div>
-                                    <div className="flex gap-3">
-                                        <button onClick={() => handleToggle(item.id, 'fail')} className={`flex-1 py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${itemState.status === 'fail' ? 'bg-red-50 text-red-600 border border-red-200 ring-2 ring-red-500 ring-offset-1 shadow-sm' : 'bg-gray-50 text-gray-500 border border-transparent hover:bg-gray-100'}`}>
+                                    <div className="flex gap-3 relative z-10">
+                                        <button onClick={() => handleToggle(item.id, 'fail')} className={`flex-1 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${itemState.status === 'fail' ? 'bg-gradient-to-r from-red-50 to-rose-50 text-red-600 border border-red-200 ring-2 ring-red-500 ring-offset-2 shadow-sm' : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-slate-100'}`}>
                                             <i className="fa-solid fa-xmark"></i> 異常
                                         </button>
-                                        <button onClick={() => handleToggle(item.id, 'pass')} className={`flex-1 py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${itemState.status === 'pass' ? 'bg-samsung-blue text-white shadow-lg shadow-blue-500/30' : 'bg-gray-50 text-gray-500 border border-transparent hover:bg-gray-100'}`}>
-                                            <i className="fa-solid fa-check"></i> 正常 (Pass)
+                                        <button onClick={() => handleToggle(item.id, 'pass')} className={`flex-1 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${itemState.status === 'pass' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/40 border border-transparent' : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-slate-100'}`}>
+                                            <i className="fa-solid fa-check"></i> 正常
                                         </button>
                                     </div>
                                 </div>
                             );
                         })}
 
-                        <div className="mt-8 pt-6 border-t border-gray-100">
-                            <label className="block text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                <span className="w-8 h-8 rounded-full bg-blue-50 text-samsung-blue flex items-center justify-center"><i className="fa-solid fa-pen-to-square"></i></span>
+                        <div className="mt-8 pt-6 border-t border-slate-200/50">
+                            <label className="block text-sm font-bold text-slate-700 mb-3 flex items-center gap-2 ml-1">
+                                <span className="w-8 h-8 rounded-full bg-blue-100/50 text-blue-600 flex items-center justify-center border border-blue-200"><i className="fa-solid fa-pen-to-square"></i></span>
                                 狀況回報 / 備註 (選填)
                             </label>
                             <textarea
                                 value={note} onChange={(e) => setNote(e.target.value)}
                                 placeholder="例如：展機線材些微破損、價格牌架缺損..."
-                                className="w-full p-4 border border-gray-200 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none h-32 resize-none shadow-sm bg-gray-50"
+                                className="w-full p-4 bg-white/80 backdrop-blur border border-white shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-3xl text-base focus:ring-2 focus:ring-blue-400 outline-none h-32 resize-none text-slate-700"
                                 style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
                             ></textarea>
-                            <p className="text-xs text-gray-400 mt-2 text-right flex items-center justify-end gap-1"><i className="fa-regular fa-floppy-disk"></i> 內容已自動暫存</p>
+                            <p className="text-[10px] text-slate-400 mt-2 text-right flex items-center justify-end gap-1 font-bold tracking-wider uppercase"><i className="fa-solid fa-cloud-arrow-up"></i> Auto Saved</p>
                         </div>
                     </div>
                     
-                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-lg border-t border-gray-200 max-w-md mx-auto z-50 pb-safe">
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/70 backdrop-blur-xl border-t border-white/50 max-w-md mx-auto z-50 pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
                         <button 
                             disabled={!isReadyToSubmit} onClick={submitAudit}
-                            className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 ${isReadyToSubmit ? 'bg-black text-white hover:bg-gray-900 shadow-black/20' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                            className={`w-full py-4 rounded-3xl font-extrabold text-lg shadow-xl transition-all transform active:scale-95 flex items-center justify-center gap-2 border ${isReadyToSubmit ? 'bg-gradient-to-r from-slate-800 to-black text-white border-slate-800 shadow-slate-900/30' : 'bg-slate-100 text-slate-400 border-slate-200 shadow-none cursor-not-allowed'}`}
                         >
-                            <span>提交稽核</span>
-                            {isReadyToSubmit && <i className="fa-solid fa-paper-plane text-sm"></i>}
+                            <span>提交稽核紀錄</span>
+                            {isReadyToSubmit && <i className="fa-solid fa-paper-plane text-sm ml-1"></i>}
                         </button>
                     </div>
                 </div>
@@ -731,11 +769,11 @@
 
             const isReadyToSubmit = partnerName.trim().length > 0;
 
-            const handleCounter = (delta) => { setMistakes(prev => Math.max(0, prev + delta)); };
+            const handleCounter = (delta) => { triggerVibration(); setMistakes(prev => Math.max(0, prev + delta)); };
 
             const submitMystery = () => {
                 if (!isReadyToSubmit) return;
-                
+                triggerVibration([50,50,50]);
                 const itemsPayload = [
                         { id: 'm_score', title: '訓練分數', desc: `${score} 分`, staffResult: score >= 80 ? 'pass' : 'fail' },
                         { id: 'm_count', title: '缺失數', desc: `${mistakes} 個`, staffResult: 'info' }
@@ -753,49 +791,58 @@
             };
 
             return (
-                <div className="pb-32 max-w-md mx-auto bg-white min-h-screen scale-in pb-safe">
-                    <div className="sticky top-[60px] bg-white/95 backdrop-blur-md z-40 border-b shadow-sm transition-all">
+                <div className="pb-36 max-w-md mx-auto scale-in pb-safe relative z-10">
+                    <div className="sticky top-[60px] bg-white/70 backdrop-blur-xl z-40 border-b border-white/50 shadow-sm transition-all">
                         <div className="p-4 flex items-center gap-4">
-                            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 active:bg-gray-200">
+                            <button onClick={() => { triggerVibration(); onBack(); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-slate-600 shadow-sm border border-slate-100 active:scale-90 transition">
                                 <i className="fa-solid fa-arrow-left text-lg"></i>
                             </button>
-                            <h2 className="font-bold text-lg text-gray-800">神秘客訓練</h2>
+                            <h2 className="font-bold text-lg text-slate-800 tracking-wide">神秘客訓練</h2>
                         </div>
                     </div>
 
                     <div className="p-6 space-y-8">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">協作夥伴姓名</label>
-                            <input type="text" value={partnerName} onChange={(e) => setPartnerName(e.target.value)} placeholder="請輸入夥伴姓名" className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-base" style={{ userSelect: 'text', WebkitUserSelect: 'text' }} />
-                            <p className="text-xs text-gray-400 mt-2">此次訓練將為您與夥伴同時累積 10 點</p>
+                        <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-white/60">
+                            <label className="block text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i className="fa-solid fa-user-group text-purple-500"></i> 協作夥伴姓名</label>
+                            <input type="text" value={partnerName} onChange={(e) => setPartnerName(e.target.value)} placeholder="請輸入夥伴姓名" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-800 font-bold transition-all shadow-inner" style={{ userSelect: 'text', WebkitUserSelect: 'text' }} />
+                            <p className="text-[11px] text-purple-600 mt-3 font-bold bg-purple-50 p-2 rounded-lg border border-purple-100 flex items-center gap-2"><i className="fa-solid fa-gift"></i> 此次訓練將為您與夥伴同時累積 10 點</p>
                         </div>
-                        <div className="bg-gradient-to-br from-purple-600 to-indigo-600 rounded-3xl p-8 text-white text-center shadow-xl">
-                            <div className="text-sm font-medium opacity-80 mb-1">當前得分</div>
-                            <div className="text-6xl font-bold font-mono tracking-tighter">{score}</div>
-                            <div className="text-xs mt-2 opacity-60">起始 100 分 • 每一缺失 -5 分</div>
+
+                        <div className="bg-gradient-to-br from-purple-600 to-indigo-700 rounded-[2rem] p-8 text-white text-center shadow-xl shadow-purple-500/30 border border-white/20 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+                            <div className="text-sm font-bold tracking-widest uppercase opacity-80 mb-2">當前得分</div>
+                            <div className="text-7xl font-black font-mono tracking-tighter drop-shadow-md">{score}</div>
+                            <div className="text-xs mt-3 opacity-70 font-medium bg-black/20 py-1.5 px-4 rounded-full inline-block">起始 100 分 • 每一缺失 -5 分</div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-4 text-center">缺失項目計數</label>
+
+                        <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-white/60">
+                            <label className="block text-sm font-bold text-slate-700 mb-6 text-center tracking-wide"><i className="fa-solid fa-clipboard-list text-indigo-500 mr-2"></i>缺失項目計數</label>
                             <div className="flex items-center justify-center gap-6">
-                                <button onClick={() => handleCounter(-1)} disabled={mistakes === 0} className="w-16 h-16 rounded-full border-2 border-gray-200 text-gray-400 text-2xl flex items-center justify-center active:bg-gray-100 active:scale-95 transition disabled:opacity-30"><i className="fa-solid fa-minus"></i></button>
-                                <div className="w-24 text-center"><span className="text-4xl font-bold text-gray-800">{mistakes}</span><div className="text-xs text-gray-400 mt-1">個缺失</div></div>
-                                <button onClick={() => handleCounter(1)} className="w-16 h-16 rounded-full bg-red-50 text-red-500 border-2 border-red-100 text-2xl flex items-center justify-center active:bg-red-100 active:scale-95 transition shadow-sm"><i className="fa-solid fa-plus"></i></button>
+                                <button onClick={() => handleCounter(-1)} disabled={mistakes === 0} className="w-16 h-16 rounded-full bg-white border border-slate-200 text-slate-500 text-2xl flex items-center justify-center active:scale-90 transition shadow-sm disabled:opacity-40 disabled:active:scale-100"><i className="fa-solid fa-minus"></i></button>
+                                <div className="w-24 text-center">
+                                    <span className="text-5xl font-black text-slate-800 tracking-tighter">{mistakes}</span>
+                                    <div className="text-xs text-slate-400 mt-1 font-bold uppercase tracking-widest">Mistakes</div>
+                                </div>
+                                <button onClick={() => handleCounter(1)} className="w-16 h-16 rounded-full bg-gradient-to-br from-red-500 to-rose-500 border border-white text-white text-2xl flex items-center justify-center active:scale-90 transition shadow-lg shadow-red-500/30"><i className="fa-solid fa-plus"></i></button>
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">缺失項目說明 (選填)</label>
-                            <textarea value={mistakeNote} onChange={(e) => setMistakeNote(e.target.value)} placeholder="請輸入具體缺失內容，例如：未主動介紹優惠..." className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-base h-24 resize-none" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}></textarea>
+
+                        <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-white/60">
+                            <label className="block text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i className="fa-solid fa-comment-dots text-blue-500"></i>缺失項目說明 (選填)</label>
+                            <textarea value={mistakeNote} onChange={(e) => setMistakeNote(e.target.value)} placeholder="請輸入具體缺失內容，例如：未主動介紹優惠..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 h-28 resize-none shadow-inner" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}></textarea>
                         </div>
                     </div>
-                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-lg border-t border-gray-200 max-w-md mx-auto z-50 pb-safe">
-                        <button disabled={!isReadyToSubmit} onClick={submitMystery} className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2 ${isReadyToSubmit ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-purple-500/30' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
-                            <span>提交訓練結果</span>{isReadyToSubmit && <i className="fa-solid fa-check-circle"></i>}
+                    
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/70 backdrop-blur-xl border-t border-white/50 max-w-md mx-auto z-50 pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
+                        <button disabled={!isReadyToSubmit} onClick={submitMystery} className={`w-full py-4 rounded-3xl font-extrabold text-lg shadow-xl transition-all transform active:scale-95 flex items-center justify-center gap-2 border ${isReadyToSubmit ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-500 shadow-purple-500/40' : 'bg-slate-100 text-slate-400 border-slate-200 shadow-none cursor-not-allowed'}`}>
+                            <span>提交訓練結果</span>{isReadyToSubmit && <i className="fa-solid fa-check-circle ml-1"></i>}
                         </button>
                     </div>
                 </div>
             );
         };
 
+        // --- Manager Components ---
         const RedemptionPanel = ({ allUsers, onRedeem, onClose }) => {
             const [selectedUser, setSelectedUser] = useState(null);
             const [amount, setAmount] = useState('');
@@ -809,32 +856,32 @@
             };
 
             return (
-                <div className="fixed inset-0 bg-black/60 z-[100] flex items-end sm:items-center justify-center animate-fade-in backdrop-blur-sm">
-                    <div className="bg-white w-full max-w-sm sm:rounded-2xl rounded-t-2xl p-6 shadow-2xl scale-in pb-safe">
+                <div className="fixed inset-0 bg-slate-900/60 z-[100] flex items-end sm:items-center justify-center animate-fade-in backdrop-blur-md">
+                    <div className="bg-white/95 backdrop-blur-xl w-full max-w-sm sm:rounded-3xl rounded-t-3xl p-6 shadow-2xl scale-in pb-safe border border-white/50">
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold text-gray-800">點數兌換</h2>
-                            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full text-gray-500"><i className="fa-solid fa-xmark text-lg"></i></button>
+                            <h2 className="text-xl font-extrabold text-slate-800 tracking-wide">點數兌換中心</h2>
+                            <button onClick={() => { triggerVibration(); onClose(); }} className="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 active:scale-90 transition"><i className="fa-solid fa-xmark text-lg"></i></button>
                         </div>
-                        <div className="space-y-3 mb-6 max-h-[50vh] overflow-y-auto no-scrollbar">
+                        <div className="space-y-3 mb-6 max-h-[50vh] overflow-y-auto no-scrollbar pb-4">
                             {staffList.map(([name, data]) => (
-                                <button key={name} onClick={() => setSelectedUser(name)} className={`w-full flex justify-between items-center p-4 rounded-xl border transition-all active:scale-98 ${selectedUser === name ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'border-gray-100 bg-white hover:bg-gray-50'}`}>
+                                <button key={name} onClick={() => { triggerVibration(); setSelectedUser(name); }} className={`w-full flex justify-between items-center p-4 rounded-2xl border transition-all active:scale-[0.98] ${selectedUser === name ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 ring-2 ring-blue-500 ring-offset-2 shadow-sm' : 'border-slate-100 bg-white hover:bg-slate-50'}`}>
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm">{name[0]}</div>
-                                        <span className="font-bold text-gray-700">{name}</span>
+                                        <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm shadow-inner border border-white">{name[0]}</div>
+                                        <span className="font-extrabold text-slate-700">{name}</span>
                                     </div>
-                                    <div className="flex flex-col items-end">
-                                        <div className="font-bold text-samsung-blue bg-blue-100 px-3 py-1 rounded-full text-sm">{data.points} P</div>
-                                        <div className="text-[10px] text-gray-400 mt-1">榮譽: {data.lifetimePoints !== undefined ? data.lifetimePoints : data.points}</div>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <div className="font-bold text-blue-700 bg-blue-100 px-3 py-1 rounded-xl text-sm tracking-wide">{data.points} P</div>
+                                        <div className="text-[10px] text-slate-400 font-bold">榮譽: {data.lifetimePoints !== undefined ? data.lifetimePoints : data.points}</div>
                                     </div>
                                 </button>
                             ))}
                         </div>
                         {selectedUser && (
-                            <div className="bg-gray-50 p-5 rounded-2xl animate-fade-in">
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">兌換點數 (不扣榮譽分)</label>
+                            <div className="bg-slate-50 p-5 rounded-3xl animate-fade-in border border-slate-200 shadow-inner">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">兌換額度 (不扣榮譽分)</label>
                                 <div className="flex gap-3">
-                                    <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="輸入點數" className="flex-1 p-3.5 rounded-xl border border-gray-300 outline-none focus:border-blue-500 text-lg font-bold" style={{ userSelect: 'text', WebkitUserSelect: 'text' }} />
-                                    <button onClick={handleRedeem} disabled={!amount || amount <= 0 || amount > allUsers[selectedUser].points} className="bg-black text-white px-6 rounded-xl font-bold disabled:opacity-50 active:scale-95 transition">兌換</button>
+                                    <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="輸入點數" className="flex-1 p-4 rounded-2xl border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500 text-lg font-black text-slate-800 shadow-sm" style={{ userSelect: 'text', WebkitUserSelect: 'text' }} />
+                                    <button onClick={handleRedeem} disabled={!amount || amount <= 0 || amount > allUsers[selectedUser].points} className="bg-gradient-to-r from-slate-800 to-black text-white px-6 rounded-2xl font-bold disabled:opacity-40 active:scale-95 transition shadow-lg shadow-black/20">確認兌換</button>
                                 </div>
                             </div>
                         )}
@@ -843,66 +890,62 @@
             );
         };
 
-        // Analytics Dashboard Component
         const AnalyticsDashboard = ({ audits }) => {
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
 
             const analyticsData = useMemo(() => {
                 const reviewedAudits = audits.filter(a => a.status === 'reviewed' && a.type === 'audit');
-                const mysteryAudits = audits.filter(a => a.status === 'reviewed' && a.type === 'mystery');
                 
-                // Count Failed Items
+                // 優化：只要有神祕客訓練的單子（不論是否已複查完成）就計算顯示
+                const mysteryAudits = audits.filter(a => a.type === 'mystery');
+                
                 const failCounts = {};
                 reviewedAudits.forEach(audit => {
                     audit.items.forEach(item => {
-                        if (!item.isNote && item.managerResult === 'fail') {
+                        // 優化：考慮主管結果覆蓋店員結果的情況
+                        const finalResult = item.managerResult !== undefined ? item.managerResult : item.staffResult;
+                        if (!item.isNote && finalResult === 'fail') {
                             failCounts[item.title] = (failCounts[item.title] || 0) + 1;
                         }
                     });
                 });
 
-                const topFails = Object.entries(failCounts)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5);
-
-                // Calculate Mystery Avg Score
+                const topFails = Object.entries(failCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
                 const totalScore = mysteryAudits.reduce((sum, a) => sum + (Number(a.score) || 0), 0);
                 const avgMysteryScore = mysteryAudits.length > 0 ? Math.round(totalScore / mysteryAudits.length) : 0;
 
-                return { 
-                    totalReviewed: reviewedAudits.length, 
-                    topFails: topFails,
-                    avgMysteryScore: avgMysteryScore,
-                    mysteryCount: mysteryAudits.length
-                };
+                return { totalReviewed: reviewedAudits.length, topFails: topFails, avgMysteryScore: avgMysteryScore, mysteryCount: mysteryAudits.length };
             }, [audits]);
 
             useEffect(() => {
                 if (chartInstance.current) { chartInstance.current.destroy(); }
                 if (chartRef.current && analyticsData.topFails.length > 0) {
                     const ctx = chartRef.current.getContext('2d');
+                    // Create gradient for chart
+                    let gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                    gradient.addColorStop(0, 'rgba(239, 68, 68, 0.9)'); // red-500
+                    gradient.addColorStop(1, 'rgba(244, 63, 94, 0.4)'); // rose-500
+
                     chartInstance.current = new Chart(ctx, {
                         type: 'bar',
                         data: {
-                            labels: analyticsData.topFails.map(d => d[0].substring(0, 8) + (d[0].length>8?'...':'')),
+                            labels: analyticsData.topFails.map(d => d[0].substring(0, 7) + (d[0].length>7?'..':'')),
                             datasets: [{
                                 label: '被駁回次數',
                                 data: analyticsData.topFails.map(d => d[1]),
-                                backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                                borderRadius: 6,
+                                backgroundColor: gradient,
+                                borderRadius: 8,
+                                borderSkipped: false,
                             }]
                         },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: false },
-                                tooltip: { callbacks: { title: (ctx) => analyticsData.topFails[ctx[0].dataIndex][0] } }
-                            },
+                            plugins: { legend: { display: false }, tooltip: { callbacks: { title: (ctx) => analyticsData.topFails[ctx[0].dataIndex][0] }, backgroundColor: 'rgba(15, 23, 42, 0.9)', padding: 12, cornerRadius: 8 } },
                             scales: {
-                                y: { beginAtZero: true, ticks: { stepSize: 1 } },
-                                x: { ticks: { font: { size: 10 } } }
+                                y: { beginAtZero: true, ticks: { stepSize: 1, color: '#94a3b8', font: {family: 'Inter', weight: 'bold'} }, grid: { color: '#f1f5f9' }, border: {display: false} },
+                                x: { ticks: { color: '#64748b', font: {family: 'Inter', weight: '600', size: 10} }, grid: { display: false }, border: {display: false} }
                             }
                         }
                     });
@@ -911,30 +954,52 @@
             }, [analyticsData]);
 
             return (
-                <div className="space-y-4 animate-fade-in">
+                <div className="space-y-4 animate-fade-in relative z-10 px-1">
                     <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
-                            <span className="text-gray-400 text-xs font-bold mb-1">一般稽核複查數</span>
-                            <span className="text-3xl font-bold text-samsung-blue">{analyticsData.totalReviewed}</span>
+                        <div className="bg-white/80 backdrop-blur border border-white shadow-sm p-5 rounded-3xl flex flex-col justify-center items-center text-center">
+                            <span className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-2">一般稽核複查數</span>
+                            <span className="text-4xl font-black text-slate-800 drop-shadow-sm">{analyticsData.totalReviewed}</span>
                         </div>
-                        <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-4 rounded-2xl shadow-sm flex flex-col justify-center items-center text-center text-white">
-                            <span className="text-purple-100 text-xs font-bold mb-1">神秘客平均分數</span>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-3xl font-bold">{analyticsData.avgMysteryScore || '-'}</span>
-                                {analyticsData.avgMysteryScore > 0 && <span className="text-xs font-medium">分</span>}
+                        <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-5 rounded-3xl shadow-lg shadow-purple-500/20 border border-white/20 flex flex-col justify-center items-center text-center text-white relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+                            <span className="text-purple-100 text-xs font-bold tracking-widest uppercase mb-1 z-10">神秘客平均分數</span>
+                            <div className="flex items-baseline gap-1 z-10">
+                                <span className="text-4xl font-black drop-shadow-md">{analyticsData.avgMysteryScore || '-'}</span>
+                                {analyticsData.avgMysteryScore > 0 && <span className="text-xs font-bold opacity-80">分</span>}
                             </div>
-                            <span className="text-[10px] text-purple-200 mt-1">共 {analyticsData.mysteryCount} 筆訓練</span>
+                            <span className="text-[10px] text-purple-200 mt-2 font-medium bg-black/20 px-2 py-0.5 rounded-full z-10">共 {analyticsData.mysteryCount} 筆訓練</span>
                         </div>
                     </div>
 
-                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                        <h3 className="font-bold text-gray-800 text-sm mb-4"><i className="fa-solid fa-chart-column text-red-500 mr-2"></i>常犯缺失 Top 5</h3>
+                    <div className="bg-white/80 backdrop-blur border border-white p-5 rounded-3xl shadow-sm">
+                        <h3 className="font-extrabold text-slate-800 text-sm mb-5 flex items-center tracking-wide"><div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center mr-2"><i className="fa-solid fa-chart-column text-red-500 text-xs"></i></div>常犯缺失 Top 5</h3>
                         {analyticsData.topFails.length > 0 ? (
-                            <div className="h-48 w-full"><canvas ref={chartRef}></canvas></div>
+                            <div className="h-52 w-full"><canvas ref={chartRef}></canvas></div>
                         ) : (
-                            <div className="h-32 flex items-center justify-center text-gray-400 text-sm">目前尚無扣分數據</div>
+                            <div className="h-40 flex flex-col items-center justify-center text-slate-400 text-sm bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                                <i className="fa-solid fa-chart-pie text-3xl mb-2 opacity-50"></i>
+                                <p className="font-medium">目前尚無扣分數據</p>
+                            </div>
                         )}
                     </div>
+                </div>
+            );
+        };
+
+        const EmptyState = ({ tab }) => {
+            let icon, title, desc;
+            if (tab === 'pending') { icon = 'fa-clipboard-check'; title = '太棒了！任務清空'; desc = '目前的稽核單都已審核完畢\n給自己一個掌聲吧！🎉'; }
+            else if (tab === 'history') { icon = 'fa-clock-rotate-left'; title = '尚無歷史紀錄'; desc = '這裡會顯示您審核過的單據'; }
+            else { icon = 'fa-inbox'; title = '空空如也'; desc = '目前沒有任何資料'; }
+
+            return (
+                <div className="text-center py-20 px-6 animate-fade-in relative z-10">
+                    <div className="w-24 h-24 mx-auto bg-white/60 backdrop-blur-md rounded-full shadow-lg border border-white flex items-center justify-center mb-6 relative">
+                        <div className="absolute inset-0 bg-blue-400/20 rounded-full animate-ping opacity-50"></div>
+                        <i className={`fa-solid ${icon} text-4xl text-blue-500 drop-shadow-sm`}></i>
+                    </div>
+                    <h3 className="text-xl font-extrabold text-slate-800 mb-2 tracking-wide">{title}</h3>
+                    <p className="text-slate-500 text-sm font-medium leading-relaxed whitespace-pre-line">{desc}</p>
                 </div>
             );
         };
@@ -950,24 +1015,21 @@
 
             return (
                 <div className="p-4 max-w-md mx-auto scale-in pb-32">
-                    <div className="flex justify-between items-center mb-5 sticky top-0 z-30 bg-gray-100/90 backdrop-blur pb-2">
-                        <div className="flex gap-1 bg-white p-1 rounded-xl border border-gray-200 shadow-sm overflow-x-auto no-scrollbar">
-                            <button onClick={() => setTab('pending')} className={`px-3 py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${tab === 'pending' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500'}`}>
-                                待複查 ({audits.filter(a => a.status === 'pending').length})
-                            </button>
-                            <button onClick={() => setTab('history')} className={`px-3 py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${tab === 'history' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500'}`}>
-                                歷史
-                            </button>
-                            <button onClick={() => setTab('analytics')} className={`px-3 py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${tab === 'analytics' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500'}`}>
-                                分析
-                            </button>
-                            <button onClick={() => setTab('leaderboard')} className={`px-3 py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${tab === 'leaderboard' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500'}`}>
-                                排名
-                            </button>
+                    <div className="flex justify-between items-center mb-6 sticky top-[60px] z-30 pt-2 pb-3 bg-f8fafc/90 backdrop-blur">
+                        <div className="flex gap-1.5 bg-slate-200/50 p-1.5 rounded-2xl shadow-inner overflow-x-auto no-scrollbar flex-1 mr-3 border border-slate-200/50">
+                            {['pending', 'history', 'analytics', 'leaderboard'].map(t => {
+                                const labels = { pending: `待審 (${audits.filter(a=>a.status==='pending').length})`, history: '歷史', analytics: '分析', leaderboard: '排名' };
+                                const isActive = tab === t;
+                                return (
+                                    <button key={t} onClick={() => { triggerVibration(); setTab(t); }} className={`px-4 py-2 text-sm font-extrabold rounded-xl transition-all whitespace-nowrap flex-1 text-center ${isActive ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'}`}>
+                                        {labels[t]}
+                                    </button>
+                                );
+                            })}
                         </div>
                         {tab !== 'leaderboard' && tab !== 'analytics' && (
-                            <button onClick={onOpenRedeem} className="bg-samsung-blue text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 active:scale-95 transition flex-shrink-0">
-                                <i className="fa-solid fa-gift"></i>
+                            <button onClick={() => { triggerVibration(); onOpenRedeem(); }} className="bg-gradient-to-tr from-amber-400 to-orange-500 text-white w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/30 active:scale-90 transition flex-shrink-0 border border-white/20">
+                                <i className="fa-solid fa-gift text-lg"></i>
                             </button>
                         )}
                     </div>
@@ -978,54 +1040,51 @@
                             {tab === 'analytics' && <AnalyticsDashboard audits={audits} />}
                             
                             {(tab === 'pending' || tab === 'history') && filteredAudits.length === 0 ? (
-                                <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
-                                    <i className="fa-solid fa-clipboard-check text-5xl mb-4 text-gray-300"></i>
-                                    <p className="font-medium">{tab === 'pending' ? '太棒了！目前沒有待審核項目' : '尚無歷史紀錄'}</p>
-                                </div>
+                                <EmptyState tab={tab} />
                             ) : (
                                 (tab === 'pending' || tab === 'history') && (
-                                    <div className="space-y-4">
+                                    <div className="space-y-4 relative z-10 px-1">
                                         {filteredAudits.map(audit => (
-                                            <div key={audit.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden active:scale-[0.99] transition-transform relative">
+                                            <div key={audit.id} className="bg-white/90 backdrop-blur-md rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-white/60 overflow-hidden active:scale-[0.98] transition-transform relative group hover:shadow-md">
                                                 <div className="p-5">
-                                                    <div className="flex justify-between items-start mb-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <span className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border ${audit.type === 'mystery' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-blue-50 text-samsung-blue border-blue-100'}`}>
+                                                    <div className="flex justify-between items-start mb-4">
+                                                        <div className="flex items-center gap-3.5">
+                                                            <span className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg border shadow-inner ${audit.type === 'mystery' ? 'bg-gradient-to-tr from-purple-50 to-indigo-50 text-indigo-600 border-indigo-100' : 'bg-gradient-to-tr from-blue-50 to-cyan-50 text-blue-600 border-blue-100'}`}>
                                                                 {audit.type === 'mystery' ? <i className="fa-solid fa-user-secret"></i> : audit.zoneId}
                                                             </span>
-                                                            <div>
-                                                                <h3 className="font-bold text-gray-800 text-lg leading-tight">{audit.zoneName}</h3>
-                                                                <p className="text-xs text-gray-400 mt-0.5 font-mono"><i className="fa-regular fa-clock mr-1"></i> {parseAndFormatDate(audit.timestamp)}</p>
+                                                            <div className="flex flex-col justify-center">
+                                                                <h3 className="font-extrabold text-slate-800 text-lg leading-tight tracking-wide">{audit.zoneName}</h3>
+                                                                <p className="text-xs text-slate-400 mt-1 font-mono font-medium tracking-wide"><i className="fa-regular fa-clock mr-1"></i>{parseAndFormatDate(audit.timestamp)}</p>
                                                             </div>
                                                         </div>
                                                         <div className="flex flex-col items-end gap-2">
                                                             {audit.status === 'reviewed' ? (
-                                                                <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${audit.penalty > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                                                                    {audit.penalty > 0 ? `扣 ${audit.penalty} 點` : 'Pass'}
+                                                                <span className={`text-xs px-3 py-1.5 rounded-xl font-bold shadow-sm border ${audit.penalty > 0 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                                                                    {audit.penalty > 0 ? `扣 ${audit.penalty} 點` : 'Perfect!'}
                                                                 </span>
                                                             ) : (
-                                                                <span className="text-xs bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-bold animate-pulse">待複查</span>
+                                                                <span className="text-[10px] bg-amber-100 text-amber-700 px-3 py-1.5 rounded-xl font-black uppercase tracking-wider animate-pulse border border-amber-200">待複查</span>
                                                             )}
                                                             
-                                                            <button onClick={(e) => { e.stopPropagation(); onDelete(audit); }} className="w-10 h-10 flex items-center justify-center bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all border border-transparent hover:border-red-100 active:scale-95">
-                                                                <i className="fa-solid fa-trash-can"></i>
+                                                            <button onClick={(e) => { e.stopPropagation(); triggerVibration(); onDelete(audit); }} className="w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all border border-transparent active:scale-90">
+                                                                <i className="fa-solid fa-trash-can text-xs"></i>
                                                             </button>
                                                         </div>
                                                     </div>
                                                     
                                                     {audit.type === 'mystery' ? (
-                                                        <div className="bg-purple-50 rounded-lg p-2.5 mb-2 text-xs text-purple-800 flex justify-between items-center">
-                                                            <span><i className="fa-solid fa-trophy mr-1"></i> 得分: {audit.score}</span>
-                                                            <span><i className="fa-solid fa-triangle-exclamation mr-1"></i> 缺失: {audit.mistakes}</span>
+                                                        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl p-3 mb-3 text-xs text-indigo-800 flex justify-between items-center border border-indigo-100 shadow-inner">
+                                                            <span className="font-bold tracking-wide"><i className="fa-solid fa-trophy mr-1.5 text-amber-500"></i>得分: {audit.score}</span>
+                                                            <span className="font-bold tracking-wide"><i className="fa-solid fa-triangle-exclamation mr-1.5 text-red-400"></i>缺失: {audit.mistakes}</span>
                                                         </div>
                                                     ) : null}
 
-                                                    <div className="flex justify-between items-center pt-2 border-t border-gray-50 mt-2">
-                                                        <p className="text-sm font-medium text-gray-600 truncate max-w-[60%]"><i className="fa-regular fa-user mr-1.5"></i> {audit.staffName}</p>
+                                                    <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+                                                        <p className="text-sm font-bold text-slate-500 truncate max-w-[60%] tracking-wide"><i className="fa-solid fa-circle-user mr-2 text-slate-300"></i>{audit.staffName}</p>
                                                         {audit.status === 'pending' ? (
-                                                            <button onClick={() => onReview(audit)} className="bg-black text-white px-5 py-2 rounded-lg text-sm font-bold shadow-md active:bg-gray-800">開始複查</button>
+                                                            <button onClick={() => { triggerVibration(); onReview(audit); }} className="bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-slate-800/20 active:scale-95 transition-all">開始複查</button>
                                                         ) : (
-                                                            <button onClick={() => onReview(audit)} className="text-gray-400 hover:text-gray-600 text-sm font-medium flex items-center gap-1">詳情 <i className="fa-solid fa-chevron-right text-xs"></i></button>
+                                                            <button onClick={() => { triggerVibration(); onReview(audit); }} className="text-slate-400 hover:text-blue-500 text-sm font-extrabold flex items-center gap-1 transition-colors">詳情 <i className="fa-solid fa-chevron-right text-xs"></i></button>
                                                         )}
                                                     </div>
                                                 </div>
@@ -1044,9 +1103,10 @@
             const [managerOverrides, setManagerOverrides] = useState({});
             const [managerNote, setManagerNote] = useState('');
 
-            const handleOverride = (itemId, result) => { setManagerOverrides(prev => ({ ...prev, [itemId]: result })); };
+            const handleOverride = (itemId, result) => { triggerVibration(); setManagerOverrides(prev => ({ ...prev, [itemId]: result })); };
 
             const handleBatchApprove = () => {
+                triggerVibration([50,50]);
                 const newOverrides = {};
                 audit.items.forEach(item => { if (!item.isNote) newOverrides[item.id] = 'pass'; });
                 setManagerOverrides(newOverrides);
@@ -1066,11 +1126,12 @@
             const currentPenalty = calculatePenalty();
 
             const submitReview = () => {
+                triggerVibration([50,100,50]);
                 const reviewedItems = audit.items.map(item => ({
                     ...item, managerResult: !item.isNote && managerOverrides[item.id] !== undefined ? managerOverrides[item.id] : item.staffResult
                 }));
                 if (managerNote.trim()) {
-                    reviewedItems.push({ id: `mgr_note_${Date.now()}`, title: '檢核人員備註', desc: managerNote.trim(), category: '備註', staffResult: 'info', isNote: true, isManagerNote: true });
+                    reviewedItems.push({ id: `mgr_note_${Date.now()}`, title: '檢核人員筆記', desc: managerNote.trim(), category: '備註', staffResult: 'info', isNote: true, isManagerNote: true });
                 }
                 onSubmitReview({ ...audit, items: reviewedItems, status: 'reviewed', penalty: currentPenalty });
             };
@@ -1078,34 +1139,35 @@
             const isReadOnly = audit.status === 'reviewed';
 
             return (
-                <div className="pb-32 max-w-md mx-auto bg-white min-h-screen scale-in pb-safe">
-                     <div className="sticky top-[60px] bg-white/95 backdrop-blur-md z-40 border-b p-4 flex items-center justify-between shadow-sm">
+                <div className="pb-36 max-w-md mx-auto scale-in pb-safe relative z-10">
+                     <div className="sticky top-[60px] bg-white/70 backdrop-blur-xl z-40 border-b border-white/50 p-4 flex items-center justify-between shadow-sm transition-all">
                         <div className="flex items-center gap-3">
-                             <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 active:bg-gray-200"><i className="fa-solid fa-arrow-left"></i></button>
+                             <button onClick={() => { triggerVibration(); onBack(); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-600 active:scale-90 transition shadow-sm"><i className="fa-solid fa-arrow-left"></i></button>
                              <div>
-                                 <h2 className="font-bold text-lg text-gray-800">{isReadOnly ? '紀錄' : '複查'}: {audit.zoneName}</h2>
-                                 <p className="text-xs text-gray-500 font-medium bg-gray-100 inline-block px-2 py-0.5 rounded mt-0.5 truncate max-w-[150px]">{audit.staffName}</p>
+                                 <h2 className="font-extrabold text-lg text-slate-800 tracking-wide">{isReadOnly ? '紀錄' : '複查'}: {audit.zoneName}</h2>
+                                 <p className="text-[10px] font-black text-slate-500 bg-slate-100 border border-slate-200 inline-block px-2 py-0.5 rounded-md mt-0.5 truncate max-w-[150px] uppercase tracking-wider">{audit.staffName}</p>
                              </div>
                         </div>
                         {!isReadOnly && (
-                            <button onClick={handleBatchApprove} className="bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg text-xs font-bold active:bg-green-100 transition flex items-center gap-1.5 shadow-sm">
+                            <button onClick={handleBatchApprove} className="bg-emerald-50 text-emerald-600 border border-emerald-200 px-4 py-2 rounded-xl text-xs font-bold active:scale-95 transition flex items-center gap-1.5 shadow-sm">
                                 <i className="fa-solid fa-check-double"></i> 全部認可
                             </button>
                         )}
                     </div>
-                    <div className="p-4 space-y-4">
+                    <div className="p-4 space-y-4 px-5">
                         {!isReadOnly && (
-                            <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-xl text-sm text-yellow-800 flex items-center gap-2">
-                                <i className="fa-solid fa-circle-exclamation text-lg"></i><span>點擊「駁回」抓缺失，整單最多扣 10 點。</span>
+                            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 p-4 rounded-2xl text-sm text-amber-800 flex items-center gap-3 shadow-sm">
+                                <i className="fa-solid fa-circle-exclamation text-xl text-amber-500 drop-shadow-sm"></i>
+                                <span className="font-bold tracking-wide">點擊「駁回」抓缺失，整單最多扣 10 點。</span>
                             </div>
                         )}
                         
                         {audit.items.map(item => {
                             if (item.isNote) {
                                 return (
-                                    <div key={item.id} className={`p-4 rounded-xl border border-gray-200 ${item.isManagerNote ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'}`}>
-                                        <h4 className={`font-bold text-sm mb-1 flex items-center gap-2 ${item.isManagerNote ? 'text-blue-700' : 'text-gray-700'}`}><i className={`fa-solid ${item.isManagerNote ? 'fa-user-tie' : 'fa-comment'}`}></i> {item.title || '人員備註'}</h4>
-                                        <p className="text-gray-600 text-sm leading-relaxed">{item.desc}</p>
+                                    <div key={item.id} className={`p-5 rounded-3xl border shadow-sm ${item.isManagerNote ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200' : 'bg-white/80 backdrop-blur border-slate-200'}`}>
+                                        <h4 className={`font-extrabold text-sm mb-2 flex items-center gap-2 tracking-wide ${item.isManagerNote ? 'text-blue-700' : 'text-slate-700'}`}><i className={`fa-solid ${item.isManagerNote ? 'fa-user-tie' : 'fa-comment-dots'}`}></i> {item.title || '人員備註'}</h4>
+                                        <p className="text-slate-600 text-sm leading-relaxed">{item.desc}</p>
                                     </div>
                                 );
                             }
@@ -1116,60 +1178,60 @@
                             const isScoreItem = item.id.startsWith('m_');
 
                             return (
-                                <div key={item.id} className={`border rounded-xl p-4 transition-all ${isConflict ? 'border-red-300 bg-red-50' : 'border-gray-100 bg-white'}`}>
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div className="flex-1 pr-2">
+                                <div key={item.id} className={`border rounded-3xl p-5 transition-all duration-300 ${isConflict ? 'border-red-200 bg-red-50/80 shadow-inner' : 'border-white/60 bg-white/80 backdrop-blur shadow-[0_2px_15px_rgba(0,0,0,0.03)]'}`}>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="flex-1 pr-3">
                                             <div className="flex items-center gap-2 mb-1">
-                                                {item.isCritical && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">重點</span>}
-                                                <h4 className="font-bold text-gray-800 text-[15px]">{item.title}</h4>
+                                                {item.isCritical && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-md font-bold shadow-sm shadow-red-500/30">重點</span>}
+                                                <h4 className="font-extrabold text-slate-800 text-[15px]">{item.title}</h4>
                                             </div>
-                                            <p className="text-xs text-gray-400">{item.desc}</p>
+                                            <p className="text-xs text-slate-400 font-medium">{item.desc}</p>
                                         </div>
-                                        <div className={`px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap ${staffRes === 'pass' ? 'bg-green-100 text-green-700' : (staffRes === 'info' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700')}`}>
+                                        <div className={`px-3 py-1.5 rounded-xl text-xs font-black tracking-wider uppercase border shadow-sm whitespace-nowrap ${staffRes === 'pass' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : (staffRes === 'info' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-red-50 text-red-600 border-red-100')}`}>
                                             {staffRes === 'pass' ? 'Pass' : (staffRes === 'info' ? 'Info' : 'Fail')}
                                         </div>
                                     </div>
                                     
                                     {!isReadOnly && !isScoreItem ? (
-                                        <div className="flex gap-2 mt-2">
-                                            <button onClick={() => handleOverride(item.id, 'pass')} className={`flex-1 py-3 rounded-lg text-xs font-bold border transition active:scale-95 ${currentManagerRes === 'pass' ? 'bg-green-600 text-white border-green-600 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>認可</button>
-                                            <button onClick={() => handleOverride(item.id, 'fail')} className={`flex-1 py-3 rounded-lg text-xs font-bold border transition active:scale-95 ${currentManagerRes === 'fail' ? 'bg-red-600 text-white border-red-600 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>駁回</button>
+                                        <div className="flex gap-3 mt-2">
+                                            <button onClick={() => handleOverride(item.id, 'pass')} className={`flex-1 py-3 rounded-2xl text-sm font-bold border transition-all active:scale-95 ${currentManagerRes === 'pass' ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}>認可</button>
+                                            <button onClick={() => handleOverride(item.id, 'fail')} className={`flex-1 py-3 rounded-2xl text-sm font-bold border transition-all active:scale-95 ${currentManagerRes === 'fail' ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/30' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}>駁回</button>
                                         </div>
                                     ) : !isReadOnly && isScoreItem ? (
-                                         <div className="flex gap-2 mt-2">
-                                            <button onClick={() => handleOverride(item.id, 'pass')} className={`flex-1 py-3 rounded-lg text-xs font-bold border transition active:scale-95 ${currentManagerRes === 'pass' ? 'bg-green-600 text-white border-green-600 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>確認無誤</button>
-                                            <button onClick={() => handleOverride(item.id, 'fail')} className={`flex-1 py-3 rounded-lg text-xs font-bold border transition active:scale-95 ${currentManagerRes === 'fail' ? 'bg-red-600 text-white border-red-600 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>數據不實</button>
+                                         <div className="flex gap-3 mt-2">
+                                            <button onClick={() => handleOverride(item.id, 'pass')} className={`flex-1 py-3 rounded-2xl text-sm font-bold border transition-all active:scale-95 ${currentManagerRes === 'pass' ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}>確認無誤</button>
+                                            <button onClick={() => handleOverride(item.id, 'fail')} className={`flex-1 py-3 rounded-2xl text-sm font-bold border transition-all active:scale-95 ${currentManagerRes === 'fail' ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/30' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}>數據不實</button>
                                         </div>
                                     ) : (
-                                        <div className="mt-3 pt-2 border-t border-black/5 text-xs flex justify-between items-center">
-                                            <span className="text-gray-400 font-medium">檢核結果</span>
-                                            <span className={`font-bold flex items-center gap-1 ${currentManagerRes === 'pass' ? 'text-green-600' : 'text-red-600'}`}>
-                                                {currentManagerRes === 'pass' ? <><i className="fa-solid fa-check"></i> 認可</> : <><i className="fa-solid fa-xmark"></i> 駁回</>}
+                                        <div className="mt-4 pt-3 border-t border-slate-200/60 text-xs flex justify-between items-center">
+                                            <span className="text-slate-400 font-bold uppercase tracking-widest">檢核結果</span>
+                                            <span className={`font-black flex items-center gap-1.5 text-sm ${currentManagerRes === 'pass' ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                {currentManagerRes === 'pass' ? <><i className="fa-solid fa-circle-check"></i> 認可</> : <><i className="fa-solid fa-circle-xmark"></i> 駁回</>}
                                             </span>
                                         </div>
                                     )}
 
-                                    {isConflict && <p className="text-xs text-red-600 mt-2 font-bold text-right flex justify-end items-center gap-1"><i className="fa-solid fa-circle-minus"></i> 記缺失 (總扣上限 10 點)</p>}
+                                    {isConflict && <p className="text-xs text-red-500 mt-3 font-bold text-right flex justify-end items-center gap-1.5"><i className="fa-solid fa-triangle-exclamation animate-pulse"></i> 記缺失 (總扣上限 10 點)</p>}
                                 </div>
                             );
                         })}
 
                         {!isReadOnly && (
-                            <div className="mt-6 pt-4 border-t border-gray-200">
-                                <label className="block text-sm font-bold text-gray-800 mb-2">
-                                    <i className="fa-solid fa-pen-to-square text-blue-600 mr-2"></i>檢核筆記 / 分析備註
+                            <div className="mt-8 pt-4 border-t border-slate-200">
+                                <label className="block text-sm font-extrabold text-slate-700 mb-3 tracking-wide">
+                                    <i className="fa-solid fa-pen-nib text-indigo-500 mr-2 text-lg"></i>檢核筆記 / 分析備註
                                 </label>
-                                <textarea value={managerNote} onChange={(e) => setManagerNote(e.target.value)} placeholder="填寫針對此分區的觀察或建議 (僅供紀錄)" className="w-full p-4 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none bg-white"></textarea>
+                                <textarea value={managerNote} onChange={(e) => setManagerNote(e.target.value)} placeholder="填寫針對此分區的觀察或建議 (僅供紀錄)" className="w-full p-4 border border-white shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-3xl text-sm focus:ring-2 focus:ring-indigo-400 outline-none h-28 resize-none bg-white/80 backdrop-blur"></textarea>
                             </div>
                         )}
                     </div>
                     {!isReadOnly && (
-                        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-lg border-t border-gray-200 max-w-md mx-auto z-50 pb-safe">
-                            <div className="flex justify-between items-center mb-3 px-1">
-                                <span className="font-bold text-gray-500 text-sm">預計扣分</span>
-                                <span className={`text-xl font-bold ${currentPenalty > 0 ? 'text-red-600' : 'text-gray-800'}`}>-{currentPenalty} 點</span>
+                        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/70 backdrop-blur-xl border-t border-white/50 max-w-md mx-auto z-50 pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
+                            <div className="flex justify-between items-center mb-3 px-2">
+                                <span className="font-bold text-slate-500 text-sm tracking-wide">預計扣分</span>
+                                <span className={`text-2xl font-black tracking-tighter ${currentPenalty > 0 ? 'text-red-500 drop-shadow-sm' : 'text-slate-800'}`}>-{currentPenalty} <span className="text-sm">Pts</span></span>
                             </div>
-                            <button onClick={submitReview} className="w-full bg-samsung-blue text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:bg-blue-800 transition active:scale-95">提交複查結果</button>
+                            <button onClick={submitReview} className="w-full bg-slate-800 text-white py-4 rounded-3xl font-extrabold text-lg shadow-xl shadow-slate-900/30 active:scale-95 transition-transform">提交複查結果</button>
                         </div>
                     )}
                 </div>
@@ -1189,7 +1251,7 @@
             const [confirmAction, setConfirmAction] = useState(null);
             const [modalMsg, setModalMsg] = useState('');
             const [isLoading, setIsLoading] = useState(false);
-            const [isInitialDataLoading, setIsInitialDataLoading] = useState(false); // Skeleton loading state
+            const [isInitialDataLoading, setIsInitialDataLoading] = useState(false);
             const [loadingMsg, setLoadingMsg] = useState('');
             const [apiUrl, setApiUrl] = useState('');
 
@@ -1340,16 +1402,17 @@
             };
 
             return (
-                <div className="min-h-screen pb-10 bg-gray-100 font-sans">
+                <div className="min-h-screen pb-10 font-sans relative overflow-hidden text-slate-800">
+                    <AmbientBackground />
                     {isLoading && <LoadingOverlay message={loadingMsg} />}
                     <ConfirmModal isOpen={showConfirmModal} title={confirmAction?.title} message={confirmAction?.message} onConfirm={confirmAction?.action} onCancel={() => setShowConfirmModal(false)} />
                     {view === 'login' ? (
                         <LoginScreen onLogin={handleLogin} apiUrl={apiUrl} setApiUrl={setApiUrl} />
                     ) : (
-                        <>
+                        <div className="relative z-10">
                             <Header currentUser={currentUser} onLogout={handleLogout} onRefresh={refreshData} />
                             
-                            {currentUser.role === 'staff' && view === 'dashboard' && <StaffDashboard onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} onSelectMystery={() => setView('mystery_form')} onShowLeaderboard={() => setView('staff_leaderboard')} />}
+                            {currentUser.role === 'staff' && view === 'dashboard' && <StaffDashboard currentUser={currentUser} onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} onSelectMystery={() => setView('mystery_form')} onShowLeaderboard={() => setView('staff_leaderboard')} />}
                             {currentUser.role === 'staff' && view === 'staff_leaderboard' && <StaffLeaderboardView allUsers={usersData} onBack={() => setView('dashboard')} isInitialLoading={isInitialDataLoading} />}
                             {currentUser.role === 'staff' && view === 'audit_form' && <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
                             {currentUser.role === 'staff' && view === 'mystery_form' && <MysteryForm currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
@@ -1359,15 +1422,15 @@
 
                             {showRedeemPanel && <RedemptionPanel allUsers={usersData} onRedeem={handleRedeem} onClose={() => setShowRedeemPanel(false)} />}
                             {showSuccessModal && (
-                                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] animate-fade-in backdrop-blur-sm">
-                                    <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-[280px] scale-in">
-                                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm"><i className="fa-solid fa-check text-3xl text-green-600"></i></div>
-                                        <h3 className="text-xl font-bold text-gray-800 mb-2">處理完成</h3>
-                                        <p className="text-gray-500 text-sm whitespace-pre-line leading-relaxed">{modalMsg}</p>
+                                <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[100] animate-fade-in backdrop-blur-sm">
+                                    <div className="bg-white/95 backdrop-blur-xl border border-white/50 p-8 rounded-[2rem] shadow-2xl text-center max-w-[280px] scale-in">
+                                        <div className="w-16 h-16 bg-gradient-to-tr from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-500/30 border border-white/50"><i className="fa-solid fa-check text-3xl text-white drop-shadow-sm"></i></div>
+                                        <h3 className="text-xl font-extrabold text-slate-800 mb-2">處理完成</h3>
+                                        <p className="text-slate-500 text-sm whitespace-pre-line leading-relaxed font-medium">{modalMsg}</p>
                                     </div>
                                 </div>
                             )}
-                        </>
+                        </div>
                     )}
                 </div>
             );
