@@ -336,7 +336,7 @@
 
                     <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-8 w-full max-w-sm shadow-2xl scale-in relative z-10">
                         <div className="text-center mb-8">
-                            <div className="bg-gradient-to-tr from-blue-500 to-indigo-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg shadow-blue-500/30">S</div>
+                            <img src="https://raw.githubusercontent.com/andyhhsu/breeze-audit-/main/214518.jpg" alt="Logo" className="w-16 h-16 rounded-full mx-auto mb-4 shadow-lg shadow-blue-500/30 object-cover border-2 border-white/20" />
                             <h1 className="text-2xl font-bold text-white tracking-tight">微風南山稽核系統</h1>
                             <p className="text-blue-200/70 text-sm mt-2 font-medium tracking-wide">Mobile Version 5.0</p>
                         </div>
@@ -638,11 +638,6 @@
                 }
             };
 
-            const handlePhoto = (itemId) => {
-                triggerVibration([30]);
-                setResults(prev => ({ ...prev, [itemId]: { ...prev[itemId], hasPhoto: !prev[itemId]?.hasPhoto } }));
-            };
-
             const completedCount = Object.keys(results).filter(k => results[k]?.status).length;
             const totalCount = CHECK_ITEMS_TEMPLATE.length;
             const progressPercent = Math.round((completedCount / totalCount) * 100);
@@ -653,8 +648,7 @@
                 triggerVibration([50, 50, 50]);
                 const itemsPayload = CHECK_ITEMS_TEMPLATE.map(item => ({
                     ...item,
-                    staffResult: results[item.id]?.status || 'fail',
-                    hasPhoto: results[item.id]?.hasPhoto
+                    staffResult: results[item.id]?.status || 'fail'
                 }));
                 if (note.trim()) {
                     itemsPayload.push({
@@ -714,12 +708,6 @@
                                             </div>
                                             <p className={`text-xs leading-relaxed ${isCompleted ? 'text-slate-400' : 'text-slate-500'}`}>{item.desc}</p>
                                         </div>
-                                        {item.requirePhoto && (
-                                            <button onClick={() => handlePhoto(item.id)} className={`flex-shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-2xl transition-all active:scale-90 relative z-10 ${itemState.hasPhoto ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>
-                                                <i className="fa-solid fa-camera text-lg"></i>
-                                                {itemState.hasPhoto && <i className="fa-solid fa-check text-[10px] absolute bg-white text-emerald-500 rounded-full p-0.5 border-2 border-emerald-500 -bottom-1 -right-1 font-black"></i>}
-                                            </button>
-                                        )}
                                     </div>
                                     <div className="flex gap-3 relative z-10">
                                         <button onClick={() => handleToggle(item.id, 'fail')} className={`flex-1 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${itemState.status === 'fail' ? 'bg-gradient-to-r from-red-50 to-rose-50 text-red-600 border border-red-200 ring-2 ring-red-500 ring-offset-2 shadow-sm' : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-slate-100'}`}>
