@@ -9,14 +9,17 @@
     <meta name="theme-color" content="#1e293b">
     <meta name="format-detection" content="telephone=no">
 
+    <!-- 更新分頁標題 -->
     <title>微風南山稽核系統</title>
+    
+    <!-- 解決 favicon 404 報錯問題 -->
+    <link rel="icon" href="data:,">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- 加入 Chart.js 圖表庫 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
@@ -58,7 +61,6 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         html { scroll-behavior: smooth; }
         
-        /* Skeleton Loading Animation */
         .skeleton {
             background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
             background-size: 200% 100%;
@@ -69,16 +71,9 @@
             100% { background-position: -200% 0; }
         }
 
-        /* Ambient Blobs Animation */
-        .animate-blob {
-            animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-            animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-            animation-delay: 4s;
-        }
+        .animate-blob { animation: blob 7s infinite; }
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-4000 { animation-delay: 4s; }
         @keyframes blob {
             0% { transform: translate(0px, 0px) scale(1); }
             33% { transform: translate(30px, -50px) scale(1.1); }
@@ -94,7 +89,8 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- Config Data ---
-        const YOUR_DEPLOY_ID = "AKfycbxX-bld2whNuQ3AFryI_l2psBLaGDo7pYqL1zZIiHIVtPpsp3WJiFxVwq5re2uuIR2p";
+        // 更新為最新的部署 ID
+        const YOUR_DEPLOY_ID = "AKfycbxb8ARAaBTyAizgUIww6lJuo-afRqQK1vbXlXRUKGZSTUkFfvi0zzv41Dg_QbaMNS9F";
         const DEFAULT_API_URL = `https://script.google.com/macros/s/${YOUR_DEPLOY_ID}/exec`;
         const MANAGER_PASSWORD = "5444";
 
@@ -115,14 +111,14 @@
             { id: 'i2', title: '展座清潔、毀損確認', desc: '確認展座底部黑色區域無灰塵且無毀損', category: '清潔', isCritical: false },
             { id: 'i3', title: '桌面清潔', desc: '桌面無灰塵雜物', category: '清潔', isCritical: false },
             { id: 'i18', title: '櫃體清潔', desc: '櫃體表面與內部無灰塵雜物', category: '清潔', isCritical: false },
-            { id: 'i4', title: '展座防盜是否正常', desc: '(蝸牛貼合、充電) *重點', category: '規範', isCritical: true, requirePhoto: true },
+            { id: 'i4', title: '展座防盜是否正常', desc: '(蝸牛貼合、充電) *重點', category: '規範', isCritical: true, requirePhoto: false },
             { id: 'i19', title: '防盜背貼是否需更換', desc: '確認背貼黏性與狀態', category: '規範', isCritical: false },
             { id: 'i5', title: '手錶正反面', desc: '確認手錶擺放方向正確', category: '規範', isCritical: false },
             { id: 'i6', title: '配件間距小於 5cm', desc: '商品掛勾間距需符合規範', category: '規範', isCritical: true },
             { id: 'i7', title: '價格牌是否合規範', desc: '位置與內容正確', category: '規範', isCritical: false },
             { id: 'i8', title: '價格牌跳行規範', desc: '第二行文字須完整顯示', category: '規範', isCritical: false },
             { id: 'i9', title: '展示機跑 Retail Mode', desc: '確認執行零售模式', category: '軟體', isCritical: true },
-            { id: 'i10', title: '展示機顯示 R 字樣', desc: '螢幕上方確認顯示 R', category: '軟體', isCritical: true, requirePhoto: true },
+            { id: 'i10', title: '展示機顯示 R 字樣', desc: '螢幕上方確認顯示 R', category: '軟體', isCritical: true, requirePhoto: false },
             { id: 'i11', title: '電子看板 INFO 連網', desc: '確認 INFO 資訊看板已連線', category: '軟體', isCritical: true },
             { id: 'i12', title: '展機資料檢查', desc: '(照片、雲端、郵件、試算表)', category: '系統', isCritical: false },
             { id: 'i13', title: '軟體更新', desc: '檢查系統更新', category: '系統', isCritical: false },
@@ -135,7 +131,6 @@
 
         // --- Helper Functions ---
         
-        // 播放成功音效
         const playSuccessSound = () => {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -144,26 +139,20 @@
                 osc.connect(gainNode);
                 gainNode.connect(ctx.destination);
                 osc.type = 'sine';
-                
                 osc.frequency.setValueAtTime(523.25, ctx.currentTime); 
                 osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.1); 
-                
                 gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-                
                 osc.start(ctx.currentTime);
                 osc.stop(ctx.currentTime + 0.4);
             } catch(e) { console.log("Audio not supported"); }
         };
 
-        // 震動回饋 (Haptic Feedback)
         const triggerVibration = (pattern = 50) => {
-            try {
-                if (navigator.vibrate) navigator.vibrate(pattern);
-            } catch(e) { /* Ignore on unsupported devices */ }
+            try { if (navigator.vibrate) navigator.vibrate(pattern); } 
+            catch(e) {}
         };
 
-        // 取得動態下午問候語
         const getDynamicGreeting = () => {
             const days = ['日', '一', '二', '三', '四', '五', '六'];
             const today = new Date().getDay();
@@ -215,14 +204,18 @@
             return `${y}/${m}/${d} ${h}:${min}`;
         };
 
+        // 優化 API 呼叫，加入 redirect 參數處理 CORS
         const callApi = async (url, action, data = {}) => {
             try {
                 const response = await fetch(url, {
                     method: 'POST',
-                    mode: 'cors',
+                    redirect: 'follow', // 確保跟隨 Google 的重定向
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({ action, ...data })
                 });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 return await response.json();
             } catch (error) {
                 console.error("API Error:", error);
@@ -232,7 +225,6 @@
 
         // --- Components ---
 
-        // 環境背景光暈組件
         const AmbientBackground = () => (
             <div className="fixed inset-0 z-[0] overflow-hidden pointer-events-none">
                 <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
@@ -526,7 +518,6 @@
             return (
                 <div className="p-4 max-w-md mx-auto scale-in pb-32 relative z-10">
                     
-                    {/* 溫暖問候區塊 */}
                     <div className="mb-6 px-1">
                         <p className="text-slate-500 text-sm font-bold tracking-wide uppercase mb-1">HELLO, {currentUser?.name}</p>
                         <h2 className="text-xl font-extrabold text-slate-800 whitespace-pre-line leading-snug">{greetingText}</h2>
@@ -625,10 +616,9 @@
             }, [results, note, isDraftLoaded, currentUser.name, zone.id]);
 
             const handleToggle = (itemId, status) => {
-                triggerVibration(); // 加入震動回饋
+                triggerVibration(); 
                 setResults(prev => ({ ...prev, [itemId]: { ...prev[itemId], status } }));
                 
-                // 自動滾動邏輯
                 const currentIndex = CHECK_ITEMS_TEMPLATE.findIndex(i => i.id === itemId);
                 if (currentIndex !== -1 && currentIndex < CHECK_ITEMS_TEMPLATE.length - 1) {
                     const nextNode = itemRefs.current[currentIndex + 1];
@@ -666,7 +656,6 @@
 
             return (
                 <div className="pb-36 max-w-md mx-auto scale-in pb-safe relative z-10">
-                    {/* 頂部 Glassmorphism 導覽 */}
                     <div className="sticky top-[60px] bg-white/70 backdrop-blur-xl z-40 border-b border-white/50 shadow-sm transition-all">
                         <div className="p-4 flex items-center gap-4">
                             <button onClick={() => { triggerVibration(); onBack(); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-slate-600 shadow-sm border border-slate-100 active:scale-90 transition">
@@ -689,7 +678,6 @@
                             const itemState = results[item.id] || {};
                             const isCompleted = !!itemState.status;
                             
-                            // Visual Noise Reduction Style
                             const cardBaseClass = "rounded-3xl p-5 transition-all duration-500 scroll-mt-48 relative overflow-hidden";
                             const cardStyleClass = isCompleted 
                                 ? "bg-white/40 backdrop-blur-sm border border-transparent shadow-none opacity-60 scale-[0.98] grayscale-[20%]" 
@@ -884,14 +872,11 @@
 
             const analyticsData = useMemo(() => {
                 const reviewedAudits = audits.filter(a => a.status === 'reviewed' && a.type === 'audit');
-                
-                // 優化：只要有神祕客訓練的單子（不論是否已複查完成）就計算顯示
                 const mysteryAudits = audits.filter(a => a.type === 'mystery');
                 
                 const failCounts = {};
                 reviewedAudits.forEach(audit => {
                     audit.items.forEach(item => {
-                        // 優化：考慮主管結果覆蓋店員結果的情況
                         const finalResult = item.managerResult !== undefined ? item.managerResult : item.staffResult;
                         if (!item.isNote && finalResult === 'fail') {
                             failCounts[item.title] = (failCounts[item.title] || 0) + 1;
@@ -910,10 +895,9 @@
                 if (chartInstance.current) { chartInstance.current.destroy(); }
                 if (chartRef.current && analyticsData.topFails.length > 0) {
                     const ctx = chartRef.current.getContext('2d');
-                    // Create gradient for chart
                     let gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                    gradient.addColorStop(0, 'rgba(239, 68, 68, 0.9)'); // red-500
-                    gradient.addColorStop(1, 'rgba(244, 63, 94, 0.4)'); // rose-500
+                    gradient.addColorStop(0, 'rgba(239, 68, 68, 0.9)'); 
+                    gradient.addColorStop(1, 'rgba(244, 63, 94, 0.4)'); 
 
                     chartInstance.current = new Chart(ctx, {
                         type: 'bar',
