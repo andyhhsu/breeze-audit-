@@ -647,9 +647,8 @@
                                           <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
                                         </div>
                                     ) : (
-                                        <div className="absolute top-3 right-3 flex items-center gap-1 bg-rose-100 px-2 py-0.5 rounded-full border border-rose-200 shadow-sm animate-pulse">
-                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                                            <span className="text-[9px] font-black text-rose-600 tracking-wider">懸賞中</span>
+                                        <div className="absolute top-3 right-3 flex h-3 w-3 animate-pulse">
+                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"></span>
                                         </div>
                                     )}
                                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black shadow-inner border border-white transition-colors ${isZoneDone ? 'bg-slate-100 text-slate-400' : 'bg-gradient-to-tr from-blue-50 to-indigo-50 text-blue-600'}`}>
@@ -1393,7 +1392,7 @@
             };
 
             const handleAuditSubmit = async (auditData) => {
-                setLoadingMsg('盲盒結算中...'); 
+                setLoadingMsg('正在上傳資料...'); 
                 setIsLoading(true);
                 try {
                     setCompletedZones(prev => [...new Set([...prev, auditData.zoneId])]);
