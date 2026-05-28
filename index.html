@@ -9,10 +9,7 @@
     <meta name="theme-color" content="#1e293b">
     <meta name="format-detection" content="telephone=no">
 
-    <!-- 更新分頁標題 -->
     <title>微風南山稽核系統</title>
-    
-    <!-- 解決 favicon 404 報錯問題 -->
     <link rel="icon" href="data:,">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -33,8 +30,6 @@
         }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
         .mb-safe { margin-bottom: env(safe-area-inset-bottom); }
-        .samsung-blue { color: #1428a0; }
-        .bg-samsung-blue { background-color: #1428a0; }
         .scale-in { animation: scaleIn 0.2s ease-out; }
         .pulse-logo { animation: pulseLogo 1.5s infinite ease-in-out; }
         
@@ -89,8 +84,7 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- Config Data ---
-        // 更新為最新的部署 ID
-        const YOUR_DEPLOY_ID = "AKfycbxb8ARAaBTyAizgUIww6lJuo-afRqQK1vbXlXRUKGZSTUkFfvi0zzv41Dg_QbaMNS9F";
+        const YOUR_DEPLOY_ID = "AKfycbxUxQ6PdzVEaeaZ9WKarD4l84hayVqI9cYnTLkVgCkb7EGwhi90RzDNdRred1X3yOaJ";
         const DEFAULT_API_URL = `https://script.google.com/macros/s/${YOUR_DEPLOY_ID}/exec`;
         const MANAGER_PASSWORD = "5444";
 
@@ -131,20 +125,27 @@
 
         // --- Helper Functions ---
         
-        const playSuccessSound = () => {
+        const playSuccessSound = (isSSR = false) => {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
                 const gainNode = ctx.createGain();
                 osc.connect(gainNode);
                 gainNode.connect(ctx.destination);
-                osc.type = 'sine';
+                osc.type = isSSR ? 'square' : 'sine';
+                
                 osc.frequency.setValueAtTime(523.25, ctx.currentTime); 
-                osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.1); 
+                if (isSSR) {
+                    osc.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.15); 
+                } else {
+                    osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.1); 
+                }
+                
                 gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                
                 osc.start(ctx.currentTime);
-                osc.stop(ctx.currentTime + 0.4);
+                osc.stop(ctx.currentTime + 0.5);
             } catch(e) { console.log("Audio not supported"); }
         };
 
@@ -161,13 +162,13 @@
             const quotes = [
                 "準備好今天的挑戰了嗎？🚀",
                 "保持完美展機，從細節開始！✨",
-                "喝口水，讓我們快速完成今天的確認。💪",
-                "用最高標準，迎接每一位顧客。🌟",
+                "隨機抽點數，看看今天的手氣！🎯",
+                "缺人打掃？快去搶下那區的點數！💰",
                 "細節決定成敗，今天也辛苦了！🔍",
-                "點數等著你，快速通關今天的稽核吧！🎯"
+                "SSR大獎隱藏中，快速通關今天的稽核吧！🎉"
             ];
             const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-            return `${dayStr}下午好！\n${randomQuote}`;
+            return `${dayStr}好！\n${randomQuote}`;
         };
 
         const parseAndFormatDate = (input) => {
@@ -204,19 +205,58 @@
             return `${y}/${m}/${d} ${h}:${min}`;
         };
 
-        // 優化 API 呼叫，加入 redirect 參數處理 CORS
+        // 核心：穩固判斷是否為今天的紀錄 (解決時區與格式問題)
+        const isToday = (ts) => {
+            const today = new Date();
+            const todayY = today.getFullYear();
+            const todayM = today.getMonth();
+            const todayD = today.getDate();
+            
+            let d;
+            const tsStr = String(ts);
+            
+            // 嘗試解析純文字 "YYYY/MM/DD HH:mm"
+            if (tsStr.includes('/') && tsStr.split(' ')[0].split('/').length === 3) {
+                const datePart = tsStr.split(' ')[0];
+                const [y, m, day] = datePart.split('/');
+                d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(day, 10));
+            } else {
+                // 讓系統自動解析 ISO 或其他標準時間格式
+                d = new Date(tsStr);
+            }
+            
+            if (!isNaN(d.getTime())) {
+                return d.getFullYear() === todayY && 
+                       d.getMonth() === todayM && 
+                       d.getDate() === todayD;
+            }
+            return false;
+        };
+
+        const computeCompletedZones = (auditList) => {
+            // 過濾出日期為今天，且為一般區域稽核的單據
+            const todaysAudits = auditList.filter(a => a.type === 'audit' && isToday(a.timestamp));
+            return [...new Set(todaysAudits.map(a => a.zoneId))];
+        };
+
         const callApi = async (url, action, data = {}) => {
             try {
                 const response = await fetch(url, {
                     method: 'POST',
-                    redirect: 'follow', // 確保跟隨 Google 的重定向
+                    redirect: 'follow',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({ action, ...data })
                 });
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                return await response.json();
+                const text = await response.text();
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error("Failed to parse JSON response:", text);
+                    return {}; 
+                }
             } catch (error) {
                 console.error("API Error:", error);
                 throw error;
@@ -280,6 +320,52 @@
             );
         };
 
+        const RewardModal = ({ points, onClose }) => {
+            const [displayPoints, setDisplayPoints] = useState(0);
+            const isSSR = points >= 30;
+
+            useEffect(() => {
+                let start = 0;
+                const target = points;
+                const duration = 1200; 
+                const increment = target / (duration / 16);
+                
+                const timer = setInterval(() => {
+                    start += increment;
+                    if (start >= target) {
+                        setDisplayPoints(target);
+                        playSuccessSound(isSSR); 
+                        triggerVibration(isSSR ? [50, 100, 200] : [50, 50]);
+                        clearInterval(timer);
+                    } else {
+                        setDisplayPoints(Math.floor(start));
+                    }
+                }, 16);
+                return () => clearInterval(timer);
+            }, [points, isSSR]);
+
+            return (
+                <div className="fixed inset-0 bg-slate-900/80 z-[150] flex items-center justify-center backdrop-blur-md animate-fade-in px-4">
+                    <div className={`bg-white/95 backdrop-blur-xl border border-white/50 p-8 rounded-[2rem] shadow-2xl text-center max-w-xs w-full scale-in relative overflow-hidden ${isSSR ? 'ring-4 ring-amber-400 ring-offset-4 ring-offset-slate-900' : ''}`}>
+                        {isSSR && <div className="absolute inset-0 bg-gradient-to-tr from-amber-200/40 to-rose-200/40 animate-pulse pointer-events-none"></div>}
+                        
+                        <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 shadow-xl border-2 border-white relative z-10 ${isSSR ? 'bg-gradient-to-tr from-amber-400 to-orange-500 shadow-orange-500/40' : 'bg-gradient-to-tr from-blue-500 to-indigo-500 shadow-blue-500/40'}`}>
+                            <i className={`fa-solid ${isSSR ? 'fa-crown' : 'fa-gift'} text-4xl text-white drop-shadow-md`}></i>
+                        </div>
+                        
+                        <h3 className="text-xl font-extrabold text-slate-800 mb-2 relative z-10">{isSSR ? '🎉 SSR 爆擊！' : '🎉 任務完成！'}</h3>
+                        
+                        <div className={`text-7xl font-black mb-4 tracking-tighter relative z-10 ${isSSR ? 'text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-rose-500' : 'text-blue-600'}`}>
+                            +{displayPoints} <span className="text-xl font-bold opacity-80 tracking-wide">Pts</span>
+                        </div>
+                        
+                        <p className="text-slate-500 text-sm font-medium leading-relaxed mb-6 relative z-10">點數已自動入帳至您的帳戶，<br/>繼續保持好表現！</p>
+                        <button onClick={onClose} className={`w-full text-white py-4 rounded-2xl font-bold shadow-lg transition-transform active:scale-95 relative z-10 ${isSSR ? 'bg-gradient-to-r from-amber-500 to-orange-600' : 'bg-slate-800 hover:bg-slate-900'}`}>確認返回</button>
+                    </div>
+                </div>
+            );
+        };
+
         const LoginScreen = ({ onLogin, apiUrl, setApiUrl }) => {
             const [name, setName] = useState('');
             const [role, setRole] = useState('staff');
@@ -322,7 +408,6 @@
 
             return (
                 <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-                    {/* Dark Mode Blobs for Login */}
                     <div className="absolute top-[-20%] left-[-10%] w-96 h-96 bg-blue-600/30 rounded-full mix-blend-screen filter blur-[100px] animate-blob"></div>
                     <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600/30 rounded-full mix-blend-screen filter blur-[100px] animate-blob animation-delay-2000"></div>
 
@@ -330,7 +415,7 @@
                         <div className="text-center mb-8">
                             <img src="https://raw.githubusercontent.com/andyhhsu/breeze-audit-/main/214518.jpg" alt="Logo" className="w-16 h-16 rounded-full mx-auto mb-4 shadow-lg shadow-blue-500/30 object-cover border-2 border-white/20" />
                             <h1 className="text-2xl font-bold text-white tracking-tight">微風南山稽核系統</h1>
-                            <p className="text-blue-200/70 text-sm mt-2 font-medium tracking-wide">Mobile Version 5.0</p>
+                            <p className="text-blue-200/70 text-sm mt-2 font-medium tracking-wide">Mobile Version 5.2</p>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
@@ -436,8 +521,9 @@
 
         const LeaderboardList = ({ allUsers }) => {
              const leaderboardData = useMemo(() => {
+                if (!allUsers) return [];
                 return Object.entries(allUsers)
-                    .filter(([_, data]) => data.role === 'staff')
+                    .filter(([_, data]) => data && data.role === 'staff')
                     .sort((a, b) => {
                         const scoreA = a[1].lifetimePoints !== undefined ? a[1].lifetimePoints : a[1].points;
                         const scoreB = b[1].lifetimePoints !== undefined ? b[1].lifetimePoints : b[1].points;
@@ -507,7 +593,7 @@
             );
         };
 
-        const StaffDashboard = ({ onSelectZone, onSelectMystery, onShowLeaderboard, currentUser }) => {
+        const StaffDashboard = ({ onSelectZone, onSelectMystery, onShowLeaderboard, currentUser, completedZones = [] }) => {
             const [showMapModal, setShowMapModal] = useState(false);
             const [greetingText, setGreetingText] = useState("");
 
@@ -552,14 +638,27 @@
                     </div>
                     
                     <div className="grid grid-cols-2 gap-3">
-                        {ZONES.map(zone => (
-                            <button key={zone.id} onClick={() => { triggerVibration(); onSelectZone(zone); }} className="bg-white/80 backdrop-blur-md p-5 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-white/60 flex flex-col items-center justify-center gap-3 active:scale-95 active:bg-slate-50 transition-all duration-200 hover:shadow-md">
-                                <div className="w-14 h-14 bg-gradient-to-tr from-blue-50 to-indigo-50 rounded-2xl flex items-center justify-center text-blue-600 text-2xl font-black shadow-inner border border-white">
-                                    {zone.id}
-                                </div>
-                                <span className="font-extrabold text-slate-700">{zone.name}</span>
-                            </button>
-                        ))}
+                        {ZONES.map(zone => {
+                            const isZoneDone = completedZones.includes(zone.id);
+                            return (
+                                <button key={zone.id} onClick={() => { triggerVibration(); onSelectZone(zone); }} className="bg-white/80 backdrop-blur-md p-5 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-white/60 flex flex-col items-center justify-center gap-3 active:scale-95 active:bg-slate-50 transition-all duration-200 hover:shadow-md relative overflow-hidden">
+                                    {isZoneDone ? (
+                                        <div className="absolute top-3 right-3 flex h-3 w-3">
+                                          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                                        </div>
+                                    ) : (
+                                        <div className="absolute top-3 right-3 flex items-center gap-1 bg-rose-100 px-2 py-0.5 rounded-full border border-rose-200 shadow-sm animate-pulse">
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                                            <span className="text-[9px] font-black text-rose-600 tracking-wider">懸賞中</span>
+                                        </div>
+                                    )}
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black shadow-inner border border-white transition-colors ${isZoneDone ? 'bg-slate-100 text-slate-400' : 'bg-gradient-to-tr from-blue-50 to-indigo-50 text-blue-600'}`}>
+                                        {zone.id}
+                                    </div>
+                                    <span className={`font-extrabold transition-colors ${isZoneDone ? 'text-slate-400' : 'text-slate-700'}`}>{zone.name}</span>
+                                </button>
+                            );
+                        })}
                     </div>
 
                     <div className="mt-8 mb-4">
@@ -628,6 +727,15 @@
                 }
             };
 
+            const handlePassAll = () => {
+                triggerVibration([50, 50]);
+                const newResults = { ...results };
+                CHECK_ITEMS_TEMPLATE.forEach(item => {
+                    newResults[item.id] = { status: 'pass' };
+                });
+                setResults(newResults);
+            };
+
             const completedCount = Object.keys(results).filter(k => results[k]?.status).length;
             const totalCount = CHECK_ITEMS_TEMPLATE.length;
             const progressPercent = Math.round((completedCount / totalCount) * 100);
@@ -646,9 +754,15 @@
                     });
                 }
                 const auditData = {
-                    id: `${Date.now()}_${currentUser.name}`, zoneId: zone.id, zoneName: zone.name, 
-                    timestamp: getNowString(), staffName: currentUser.name, items: itemsPayload, status: 'pending',
-                    type: 'audit', note: note.trim()
+                    id: `${Date.now()}_${currentUser.name}`, 
+                    zoneId: zone.id, 
+                    zoneName: zone.name, 
+                    timestamp: getNowString(), 
+                    staffName: currentUser.name, 
+                    items: itemsPayload, 
+                    status: 'pending',
+                    type: 'audit', 
+                    note: note.trim()
                 };
                 localStorage.removeItem(`samsung_audit_draft_${currentUser.name}_${zone.id}`);
                 onSubmit(auditData);
@@ -674,6 +788,11 @@
                     </div>
 
                     <div className="p-4 space-y-4">
+                        {/* 一鍵正常按鈕 */}
+                        <button onClick={handlePassAll} className="w-full bg-emerald-50 text-emerald-600 py-3.5 rounded-2xl font-bold mb-2 border border-emerald-100 flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm">
+                            <i className="fa-solid fa-bolt text-amber-400"></i> 一鍵全數正常
+                        </button>
+
                         {CHECK_ITEMS_TEMPLATE.map((item, index) => {
                             const itemState = results[item.id] || {};
                             const isCompleted = !!itemState.status;
@@ -781,7 +900,7 @@
                         <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-white/60">
                             <label className="block text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i className="fa-solid fa-user-group text-purple-500"></i> 協作夥伴姓名</label>
                             <input type="text" value={partnerName} onChange={(e) => setPartnerName(e.target.value)} placeholder="請輸入夥伴姓名" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-800 font-bold transition-all shadow-inner" style={{ userSelect: 'text', WebkitUserSelect: 'text' }} />
-                            <p className="text-[11px] text-purple-600 mt-3 font-bold bg-purple-50 p-2 rounded-lg border border-purple-100 flex items-center gap-2"><i className="fa-solid fa-gift"></i> 此次訓練將為您與夥伴同時累積 10 點</p>
+                            <p className="text-[11px] text-purple-600 mt-3 font-bold bg-purple-50 p-2 rounded-lg border border-purple-100 flex items-center gap-2"><i className="fa-solid fa-gift"></i> 此次訓練將為您與夥伴同時累積固定 15 點</p>
                         </div>
 
                         <div className="bg-gradient-to-br from-purple-600 to-indigo-700 rounded-[2rem] p-8 text-white text-center shadow-xl shadow-purple-500/30 border border-white/20 relative overflow-hidden">
@@ -866,118 +985,8 @@
             );
         };
 
-        const AnalyticsDashboard = ({ audits }) => {
-            const chartRef = useRef(null);
-            const chartInstance = useRef(null);
-
-            const analyticsData = useMemo(() => {
-                const reviewedAudits = audits.filter(a => a.status === 'reviewed' && a.type === 'audit');
-                const mysteryAudits = audits.filter(a => a.type === 'mystery');
-                
-                const failCounts = {};
-                reviewedAudits.forEach(audit => {
-                    audit.items.forEach(item => {
-                        const finalResult = item.managerResult !== undefined ? item.managerResult : item.staffResult;
-                        if (!item.isNote && finalResult === 'fail') {
-                            failCounts[item.title] = (failCounts[item.title] || 0) + 1;
-                        }
-                    });
-                });
-
-                const topFails = Object.entries(failCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-                const totalScore = mysteryAudits.reduce((sum, a) => sum + (Number(a.score) || 0), 0);
-                const avgMysteryScore = mysteryAudits.length > 0 ? Math.round(totalScore / mysteryAudits.length) : 0;
-
-                return { totalReviewed: reviewedAudits.length, topFails: topFails, avgMysteryScore: avgMysteryScore, mysteryCount: mysteryAudits.length };
-            }, [audits]);
-
-            useEffect(() => {
-                if (chartInstance.current) { chartInstance.current.destroy(); }
-                if (chartRef.current && analyticsData.topFails.length > 0) {
-                    const ctx = chartRef.current.getContext('2d');
-                    let gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                    gradient.addColorStop(0, 'rgba(239, 68, 68, 0.9)'); 
-                    gradient.addColorStop(1, 'rgba(244, 63, 94, 0.4)'); 
-
-                    chartInstance.current = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: analyticsData.topFails.map(d => d[0].substring(0, 7) + (d[0].length>7?'..':'')),
-                            datasets: [{
-                                label: '被駁回次數',
-                                data: analyticsData.topFails.map(d => d[1]),
-                                backgroundColor: gradient,
-                                borderRadius: 8,
-                                borderSkipped: false,
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false }, tooltip: { callbacks: { title: (ctx) => analyticsData.topFails[ctx[0].dataIndex][0] }, backgroundColor: 'rgba(15, 23, 42, 0.9)', padding: 12, cornerRadius: 8 } },
-                            scales: {
-                                y: { beginAtZero: true, ticks: { stepSize: 1, color: '#94a3b8', font: {family: 'Inter', weight: 'bold'} }, grid: { color: '#f1f5f9' }, border: {display: false} },
-                                x: { ticks: { color: '#64748b', font: {family: 'Inter', weight: '600', size: 10} }, grid: { display: false }, border: {display: false} }
-                            }
-                        }
-                    });
-                }
-                return () => { if(chartInstance.current) chartInstance.current.destroy(); }
-            }, [analyticsData]);
-
-            return (
-                <div className="space-y-4 animate-fade-in relative z-10 px-1">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-white/80 backdrop-blur border border-white shadow-sm p-5 rounded-3xl flex flex-col justify-center items-center text-center">
-                            <span className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-2">一般稽核複查數</span>
-                            <span className="text-4xl font-black text-slate-800 drop-shadow-sm">{analyticsData.totalReviewed}</span>
-                        </div>
-                        <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-5 rounded-3xl shadow-lg shadow-purple-500/20 border border-white/20 flex flex-col justify-center items-center text-center text-white relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
-                            <span className="text-purple-100 text-xs font-bold tracking-widest uppercase mb-1 z-10">神秘客平均分數</span>
-                            <div className="flex items-baseline gap-1 z-10">
-                                <span className="text-4xl font-black drop-shadow-md">{analyticsData.avgMysteryScore || '-'}</span>
-                                {analyticsData.avgMysteryScore > 0 && <span className="text-xs font-bold opacity-80">分</span>}
-                            </div>
-                            <span className="text-[10px] text-purple-200 mt-2 font-medium bg-black/20 px-2 py-0.5 rounded-full z-10">共 {analyticsData.mysteryCount} 筆訓練</span>
-                        </div>
-                    </div>
-
-                    <div className="bg-white/80 backdrop-blur border border-white p-5 rounded-3xl shadow-sm">
-                        <h3 className="font-extrabold text-slate-800 text-sm mb-5 flex items-center tracking-wide"><div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center mr-2"><i className="fa-solid fa-chart-column text-red-500 text-xs"></i></div>常犯缺失 Top 5</h3>
-                        {analyticsData.topFails.length > 0 ? (
-                            <div className="h-52 w-full"><canvas ref={chartRef}></canvas></div>
-                        ) : (
-                            <div className="h-40 flex flex-col items-center justify-center text-slate-400 text-sm bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                                <i className="fa-solid fa-chart-pie text-3xl mb-2 opacity-50"></i>
-                                <p className="font-medium">目前尚無扣分數據</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            );
-        };
-
-        const EmptyState = ({ tab }) => {
-            let icon, title, desc;
-            if (tab === 'pending') { icon = 'fa-clipboard-check'; title = '太棒了！任務清空'; desc = '目前的稽核單都已審核完畢\n給自己一個掌聲吧！🎉'; }
-            else if (tab === 'history') { icon = 'fa-clock-rotate-left'; title = '尚無歷史紀錄'; desc = '這裡會顯示您審核過的單據'; }
-            else { icon = 'fa-inbox'; title = '空空如也'; desc = '目前沒有任何資料'; }
-
-            return (
-                <div className="text-center py-20 px-6 animate-fade-in relative z-10">
-                    <div className="w-24 h-24 mx-auto bg-white/60 backdrop-blur-md rounded-full shadow-lg border border-white flex items-center justify-center mb-6 relative">
-                        <div className="absolute inset-0 bg-blue-400/20 rounded-full animate-ping opacity-50"></div>
-                        <i className={`fa-solid ${icon} text-4xl text-blue-500 drop-shadow-sm`}></i>
-                    </div>
-                    <h3 className="text-xl font-extrabold text-slate-800 mb-2 tracking-wide">{title}</h3>
-                    <p className="text-slate-500 text-sm font-medium leading-relaxed whitespace-pre-line">{desc}</p>
-                </div>
-            );
-        };
-
-        const ManagerDashboard = ({ audits, allUsers, onReview, onOpenRedeem, onDelete, isInitialLoading }) => {
-            const [tab, setTab] = useState('pending');
+        const ManagerDashboard = ({ audits, allUsers, completedZones, zones, onReview, onOpenRedeem, onDelete, isInitialLoading }) => {
+            const [tab, setTab] = useState('overview');
 
             const filteredAudits = useMemo(() => {
                 if (tab === 'pending') return audits.filter(a => a.status === 'pending');
@@ -985,12 +994,14 @@
                 return [];
             }, [audits, tab]);
 
+            const todaysAudits = audits.filter(a => a.type === 'audit' && isToday(a.timestamp));
+
             return (
                 <div className="p-4 max-w-md mx-auto scale-in pb-32">
                     <div className="flex justify-between items-center mb-6 sticky top-[60px] z-30 pt-2 pb-3 bg-f8fafc/90 backdrop-blur">
                         <div className="flex gap-1.5 bg-slate-200/50 p-1.5 rounded-2xl shadow-inner overflow-x-auto no-scrollbar flex-1 mr-3 border border-slate-200/50">
-                            {['pending', 'history', 'analytics', 'leaderboard'].map(t => {
-                                const labels = { pending: `待審 (${audits.filter(a=>a.status==='pending').length})`, history: '歷史', analytics: '分析', leaderboard: '排名' };
+                            {['overview', 'pending', 'history'].map(t => {
+                                const labels = { overview: '今日總覽', pending: `待審 (${audits.filter(a=>a.status==='pending').length})`, history: '歷史' };
                                 const isActive = tab === t;
                                 return (
                                     <button key={t} onClick={() => { triggerVibration(); setTab(t); }} className={`px-4 py-2 text-sm font-extrabold rounded-xl transition-all whitespace-nowrap flex-1 text-center ${isActive ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -999,20 +1010,68 @@
                                 );
                             })}
                         </div>
-                        {tab !== 'leaderboard' && tab !== 'analytics' && (
-                            <button onClick={() => { triggerVibration(); onOpenRedeem(); }} className="bg-gradient-to-tr from-amber-400 to-orange-500 text-white w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/30 active:scale-90 transition flex-shrink-0 border border-white/20">
-                                <i className="fa-solid fa-gift text-lg"></i>
-                            </button>
-                        )}
+                        <button onClick={() => { triggerVibration(); onOpenRedeem(); }} className="bg-gradient-to-tr from-amber-400 to-orange-500 text-white w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/30 active:scale-90 transition flex-shrink-0 border border-white/20">
+                            <i className="fa-solid fa-gift text-lg"></i>
+                        </button>
                     </div>
 
                     {isInitialLoading ? <SkeletonList /> : (
                         <>
-                            {tab === 'leaderboard' && <LeaderboardList allUsers={allUsers} />}
-                            {tab === 'analytics' && <AnalyticsDashboard audits={audits} />}
-                            
+                            {tab === 'overview' && (
+                                <div className="space-y-4 relative z-10 px-1 animate-fade-in">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-green-50 p-4 rounded-3xl border border-green-200 shadow-sm flex flex-col justify-center items-center text-center">
+                                            <span className="text-green-800 text-xs font-bold tracking-widest uppercase mb-1">已完成區域</span>
+                                            <span className="text-4xl font-black text-green-600 drop-shadow-sm">{completedZones.length} <span className="text-lg">/ {zones.length}</span></span>
+                                        </div>
+                                        <div className="bg-red-50 p-4 rounded-3xl border border-red-200 shadow-sm flex flex-col justify-center items-center text-center">
+                                            <span className="text-red-800 text-xs font-bold tracking-widest uppercase mb-1">待檢核區域</span>
+                                            <span className="text-4xl font-black text-red-600 drop-shadow-sm">{zones.length - completedZones.length}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-white/60 overflow-hidden">
+                                        <h3 className="font-extrabold text-gray-800 text-sm p-4 border-b border-gray-100 flex items-center tracking-wide">
+                                            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mr-2"><i className="fa-solid fa-list-check text-blue-500 text-xs"></i></div>
+                                            今日各區狀態
+                                        </h3>
+                                        <div className="flex flex-col">
+                                            {zones.map(zone => {
+                                                const isDone = completedZones.includes(zone.id);
+                                                const relatedAudit = todaysAudits.find(a => a.zoneId === zone.id);
+                                                return (
+                                                    <div key={zone.id} className="flex items-center justify-between p-4 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-3 h-3 rounded-full ${isDone ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`}></div>
+                                                            <span className={`font-extrabold ${isDone ? 'text-gray-500' : 'text-gray-800'}`}>{zone.name}</span>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            {isDone ? (
+                                                                <div className="flex flex-col items-end">
+                                                                    <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1 rounded-xl shadow-sm border border-green-200">已檢核完成</span>
+                                                                    {relatedAudit && <div className="text-[10px] font-bold text-gray-400 mt-1.5"><i className="fa-regular fa-user mr-1 text-gray-300"></i>{relatedAudit.staffName}</div>}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-xs font-bold text-red-700 bg-red-100 px-3 py-1 rounded-xl shadow-sm border border-red-200">尚未檢核</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {(tab === 'pending' || tab === 'history') && filteredAudits.length === 0 ? (
-                                <EmptyState tab={tab} />
+                                <div className="text-center py-20 px-6 animate-fade-in relative z-10">
+                                    <div className="w-24 h-24 mx-auto bg-white/60 backdrop-blur-md rounded-full shadow-lg border border-white flex items-center justify-center mb-6 relative">
+                                        <div className="absolute inset-0 bg-blue-400/20 rounded-full animate-ping opacity-50"></div>
+                                        <i className={`fa-solid ${tab === 'pending' ? 'fa-clipboard-check' : 'fa-clock-rotate-left'} text-4xl text-blue-500 drop-shadow-sm`}></i>
+                                    </div>
+                                    <h3 className="text-xl font-extrabold text-slate-800 mb-2 tracking-wide">{tab === 'pending' ? '太棒了！任務清空' : '尚無歷史紀錄'}</h3>
+                                    <p className="text-slate-500 text-sm font-medium leading-relaxed">{tab === 'pending' ? '目前的稽核單都已審核完畢\n給自己一個掌聲吧！🎉' : '這裡會顯示您審核過的單據'}</p>
+                                </div>
                             ) : (
                                 (tab === 'pending' || tab === 'history') && (
                                     <div className="space-y-4 relative z-10 px-1">
@@ -1217,8 +1276,10 @@
             const [selectedZone, setSelectedZone] = useState(null);
             const [selectedAudit, setSelectedAudit] = useState(null);
             const [audits, setAudits] = useState([]);
+            const [completedZones, setCompletedZones] = useState([]); 
             const [showRedeemPanel, setShowRedeemPanel] = useState(false);
             const [showSuccessModal, setShowSuccessModal] = useState(false);
+            const [rewardPoints, setRewardPoints] = useState(0); 
             const [showConfirmModal, setShowConfirmModal] = useState(false);
             const [confirmAction, setConfirmAction] = useState(null);
             const [modalMsg, setModalMsg] = useState('');
@@ -1237,17 +1298,26 @@
                 if (!apiUrl) return;
                 setIsInitialDataLoading(true);
                 try {
-                    const userRes = await callApi(apiUrl, 'getAllUsers');
-                    if (userRes.users) setUsersData(userRes.users);
-                    if (currentUser) {
-                         const updatedUser = userRes.users[currentUser.name];
-                         if (updatedUser) setCurrentUser(prev => ({ ...prev, points: updatedUser.points }));
+                    let userRes = await callApi(apiUrl, 'getDashboardData');
+                    if (!userRes || !userRes.users) {
+                        userRes = await callApi(apiUrl, 'getAllUsers');
                     }
-                    if (currentUser && currentUser.role === 'manager') {
-                        const auditRes = await callApi(apiUrl, 'getAudits');
-                        if (auditRes.audits) setAudits(auditRes.audits);
+                    
+                    if (userRes && userRes.users) {
+                        setUsersData(userRes.users);
+                        if (currentUser) {
+                             const updatedUser = userRes.users?.[currentUser.name];
+                             if (updatedUser) setCurrentUser(prev => ({ ...prev, points: updatedUser.points }));
+                        }
                     }
-                } catch (e) { console.error("Refresh failed"); }
+                    const auditRes = await callApi(apiUrl, 'getAudits');
+                    if (auditRes && auditRes.audits) {
+                        setAudits(auditRes.audits);
+                        setCompletedZones(computeCompletedZones(auditRes.audits));
+                    }
+                } catch (e) { 
+                    console.error("Refresh failed:", e); 
+                }
                 setIsInitialDataLoading(false);
             };
 
@@ -1270,18 +1340,23 @@
 
             const fetchInitialData = async (user) => {
                 try {
-                    const userRes = await callApi(apiUrl, 'getAllUsers');
-                    if (userRes.users) {
+                    let userRes = await callApi(apiUrl, 'getDashboardData');
+                    if (!userRes || !userRes.users) {
+                        userRes = await callApi(apiUrl, 'getAllUsers');
+                    }
+                    
+                    if (userRes && userRes.users) {
                         setUsersData(userRes.users);
-                        if (user && userRes.users[user.name]) {
+                        if (user && userRes.users?.[user.name]) {
                             setCurrentUser(prev => ({ ...prev, points: userRes.users[user.name].points }));
                         }
                     }
-                    if (user && user.role === 'manager') {
-                        const auditRes = await callApi(apiUrl, 'getAudits');
-                        if (auditRes.audits) setAudits(auditRes.audits);
+                    const auditRes = await callApi(apiUrl, 'getAudits');
+                    if (auditRes && auditRes.audits) {
+                        setAudits(auditRes.audits);
+                        setCompletedZones(computeCompletedZones(auditRes.audits));
                     }
-                } catch (e) { console.error("Background fetch failed"); }
+                } catch (e) { console.error("Background fetch failed", e); }
                 setIsInitialDataLoading(false);
             };
 
@@ -1291,6 +1366,7 @@
                 setSelectedZone(null);
                 setSelectedAudit(null);
                 setAudits([]);
+                setCompletedZones([]);
             };
 
             const handleDeleteAudit = (audit) => {
@@ -1304,7 +1380,7 @@
                         setAudits(prev => prev.filter(a => a.id !== audit.id));
                         try {
                             const res = await callApi(apiUrl, 'deleteAudit', { auditId: audit.id });
-                            if (res.success) {
+                            if (res && res.success) {
                                 setModalMsg('紀錄已刪除');
                                 setShowSuccessModal(true);
                                 setTimeout(() => setShowSuccessModal(false), 1000);
@@ -1317,20 +1393,17 @@
             };
 
             const handleAuditSubmit = async (auditData) => {
-                setLoadingMsg('正在上傳資料...');
+                setLoadingMsg('盲盒結算中...'); 
                 setIsLoading(true);
                 try {
+                    setCompletedZones(prev => [...new Set([...prev, auditData.zoneId])]);
+                    setAudits(prev => [auditData, ...prev]);
+
                     const res = await callApi(apiUrl, 'submitAudit', { audit: auditData });
-                    if (res.success) {
-                        playSuccessSound(); 
-                        setModalMsg('+10 點數已入帳！\n待檢核人員複查。');
-                        setShowSuccessModal(true);
-                        refreshData();
-                        setTimeout(() => {
-                            setShowSuccessModal(false);
-                            setView('dashboard');
-                            setSelectedZone(null);
-                        }, 1500); 
+                    if (res && res.success) {
+                        setRewardPoints(res.pointsAdded || 10);
+                        setShowSuccessModal(true); 
+                        refreshData(); 
                     }
                 } catch (e) { alert("提交失敗"); }
                 setIsLoading(false);
@@ -1342,8 +1415,9 @@
                 setAudits(prev => prev.map(a => a.id === reviewedAudit.id ? { ...reviewedAudit, status: 'reviewed' } : a));
                 try {
                     const res = await callApi(apiUrl, 'submitReview', { audit: reviewedAudit });
-                    if (res.success) {
+                    if (res && res.success) {
                         if(reviewedAudit.penalty === 0) playSuccessSound(); 
+                        setRewardPoints(0); 
                         setModalMsg(reviewedAudit.penalty > 0 ? `已扣除 ${reviewedAudit.penalty} 點。` : '複查完成。');
                         setShowSuccessModal(true);
                         setTimeout(() => {
@@ -1361,8 +1435,9 @@
                 setIsLoading(true);
                 try {
                     const res = await callApi(apiUrl, 'redeem', { name: userName, amount });
-                    if (res.success) {
+                    if (res && res.success) {
                         playSuccessSound(); 
+                        setRewardPoints(0);
                         setModalMsg(`兌換成功！\n扣除 ${amount} 點。`);
                         setShowRedeemPanel(false);
                         setShowSuccessModal(true);
@@ -1373,34 +1448,46 @@
                 setIsLoading(false);
             };
 
+            const closeRewardModal = () => {
+                setShowSuccessModal(false);
+                setView('dashboard');
+                setSelectedZone(null);
+            };
+
             return (
                 <div className="min-h-screen pb-10 font-sans relative overflow-hidden text-slate-800">
                     <AmbientBackground />
                     {isLoading && <LoadingOverlay message={loadingMsg} />}
                     <ConfirmModal isOpen={showConfirmModal} title={confirmAction?.title} message={confirmAction?.message} onConfirm={confirmAction?.action} onCancel={() => setShowConfirmModal(false)} />
+                    
                     {view === 'login' ? (
                         <LoginScreen onLogin={handleLogin} apiUrl={apiUrl} setApiUrl={setApiUrl} />
                     ) : (
                         <div className="relative z-10">
                             <Header currentUser={currentUser} onLogout={handleLogout} onRefresh={refreshData} />
                             
-                            {currentUser.role === 'staff' && view === 'dashboard' && <StaffDashboard currentUser={currentUser} onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} onSelectMystery={() => setView('mystery_form')} onShowLeaderboard={() => setView('staff_leaderboard')} />}
+                            {currentUser.role === 'staff' && view === 'dashboard' && <StaffDashboard currentUser={currentUser} completedZones={completedZones} onSelectZone={(z) => { setSelectedZone(z); setView('audit_form'); }} onSelectMystery={() => setView('mystery_form')} onShowLeaderboard={() => setView('staff_leaderboard')} />}
                             {currentUser.role === 'staff' && view === 'staff_leaderboard' && <StaffLeaderboardView allUsers={usersData} onBack={() => setView('dashboard')} isInitialLoading={isInitialDataLoading} />}
                             {currentUser.role === 'staff' && view === 'audit_form' && <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
                             {currentUser.role === 'staff' && view === 'mystery_form' && <MysteryForm currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
                             
-                            {currentUser.role === 'manager' && view === 'dashboard' && <ManagerDashboard audits={audits} allUsers={usersData} onReview={(a) => { setSelectedAudit(a); setView('review_form'); }} onOpenRedeem={() => setShowRedeemPanel(true)} onDelete={handleDeleteAudit} isInitialLoading={isInitialDataLoading} />}
+                            {currentUser.role === 'manager' && view === 'dashboard' && <ManagerDashboard audits={audits} allUsers={usersData} completedZones={completedZones} zones={ZONES} onReview={(a) => { setSelectedAudit(a); setView('review_form'); }} onOpenRedeem={() => setShowRedeemPanel(true)} onDelete={handleDeleteAudit} isInitialLoading={isInitialDataLoading} />}
                             {currentUser.role === 'manager' && view === 'review_form' && <ReviewForm audit={selectedAudit} onBack={() => setView('dashboard')} onSubmitReview={handleReviewSubmit} />}
 
                             {showRedeemPanel && <RedemptionPanel allUsers={usersData} onRedeem={handleRedeem} onClose={() => setShowRedeemPanel(false)} />}
+                            
                             {showSuccessModal && (
-                                <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[100] animate-fade-in backdrop-blur-sm">
-                                    <div className="bg-white/95 backdrop-blur-xl border border-white/50 p-8 rounded-[2rem] shadow-2xl text-center max-w-[280px] scale-in">
-                                        <div className="w-16 h-16 bg-gradient-to-tr from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-500/30 border border-white/50"><i className="fa-solid fa-check text-3xl text-white drop-shadow-sm"></i></div>
-                                        <h3 className="text-xl font-extrabold text-slate-800 mb-2">處理完成</h3>
-                                        <p className="text-slate-500 text-sm whitespace-pre-line leading-relaxed font-medium">{modalMsg}</p>
+                                rewardPoints > 0 ? (
+                                    <RewardModal points={rewardPoints} onClose={closeRewardModal} />
+                                ) : (
+                                    <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[100] animate-fade-in backdrop-blur-sm">
+                                        <div className="bg-white/95 backdrop-blur-xl border border-white/50 p-8 rounded-[2rem] shadow-2xl text-center max-w-[280px] scale-in">
+                                            <div className="w-16 h-16 bg-gradient-to-tr from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg shadow-emerald-500/30 border border-white/50"><i className="fa-solid fa-check text-3xl text-white drop-shadow-sm"></i></div>
+                                            <h3 className="text-xl font-extrabold text-slate-800 mb-2">處理完成</h3>
+                                            <p className="text-slate-500 text-sm whitespace-pre-line leading-relaxed font-medium">{modalMsg}</p>
+                                        </div>
                                     </div>
-                                </div>
+                                )
                             )}
                         </div>
                     )}
