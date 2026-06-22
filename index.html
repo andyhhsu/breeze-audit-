@@ -1109,6 +1109,53 @@
             );
         };
 
+        const RedemptionPanel = ({ allUsers, onRedeem, onClose }) => {
+            const [selectedUser, setSelectedUser] = useState(null);
+            const [amount, setAmount] = useState('');
+            const staffList = Object.entries(allUsers).filter(([_, data]) => data.role === 'staff');
+
+            const handleRedeem = () => {
+                if (!selectedUser || !amount) return;
+                onRedeem(selectedUser, parseInt(amount));
+                setAmount('');
+                setSelectedUser(null);
+            };
+
+            return (
+                <div className="fixed inset-0 bg-slate-900/60 z-[100] flex items-end sm:items-center justify-center animate-fade-in backdrop-blur-md">
+                    <div className="bg-white/95 backdrop-blur-xl w-full max-w-sm sm:rounded-3xl rounded-t-3xl p-6 shadow-2xl scale-in pb-safe border border-white/50">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-extrabold text-slate-800 tracking-wide">點數兌換中心</h2>
+                            <button onClick={() => { triggerVibration(); onClose(); }} className="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 active:scale-90 transition"><i className="fa-solid fa-xmark text-lg"></i></button>
+                        </div>
+                        <div className="space-y-3 mb-6 max-h-[50vh] overflow-y-auto no-scrollbar pb-4">
+                            {staffList.map(([name, data]) => (
+                                <button key={name} onClick={() => { triggerVibration(); setSelectedUser(name); }} className={`w-full flex justify-between items-center p-4 rounded-2xl border transition-all active:scale-[0.98] ${selectedUser === name ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 ring-2 ring-blue-500 ring-offset-2 shadow-sm' : 'border-slate-100 bg-white hover:bg-slate-50'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm shadow-inner border border-white">{name[0]}</div>
+                                        <span className="font-extrabold text-slate-700">{name}</span>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <div className="font-bold text-blue-700 bg-blue-100 px-3 py-1 rounded-xl text-sm tracking-wide">{data.points} P</div>
+                                        <div className="text-[10px] text-slate-400 font-bold">榮譽: {data.lifetimePoints !== undefined ? data.lifetimePoints : data.points}</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                        {selectedUser && (
+                            <div className="bg-slate-50 p-5 rounded-3xl animate-fade-in border border-slate-200 shadow-inner">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">兌換額度 (不扣榮譽分)</label>
+                                <div className="flex gap-3">
+                                    <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="輸入點數" className="flex-1 p-4 rounded-2xl border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500 text-lg font-black text-slate-800 shadow-sm" style={{ userSelect: 'text', WebkitUserSelect: 'text' }} />
+                                    <button onClick={handleRedeem} disabled={!amount || amount <= 0 || amount > allUsers[selectedUser].points} className="bg-gradient-to-r from-slate-800 to-black text-white px-6 rounded-2xl font-bold disabled:opacity-40 active:scale-95 transition shadow-lg shadow-black/20">確認兌換</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
         const ManagerDashboard = ({ audits, allUsers, completedZones, zones, monthlyScores, onReview, onOpenRedeem, onOpenScoreModal, onDelete, isInitialLoading }) => {
             const [tab, setTab] = useState('overview');
 
@@ -1623,6 +1670,7 @@
                             {currentUser.role === 'staff' && view === 'audit_form' && <AuditForm zone={selectedZone} currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
                             {currentUser.role === 'staff' && view === 'mystery_form' && <MysteryForm currentUser={currentUser} onBack={() => setView('dashboard')} onSubmit={handleAuditSubmit} />}
                             
+                            {/* 主管儀表板，將 monthlyScores 與打開編輯 Modal 的函式傳入 */}
                             {currentUser.role === 'manager' && view === 'dashboard' && <ManagerDashboard audits={audits} allUsers={usersData} completedZones={completedZones} zones={ZONES} monthlyScores={monthlyScores} onReview={(a) => { setSelectedAudit(a); setView('review_form'); }} onOpenRedeem={() => setShowRedeemPanel(true)} onOpenScoreModal={() => setShowScoreModal(true)} onDelete={handleDeleteAudit} isInitialLoading={isInitialDataLoading} />}
                             {currentUser.role === 'manager' && view === 'review_form' && <ReviewForm audit={selectedAudit} onBack={() => setView('dashboard')} onSubmitReview={handleReviewSubmit} />}
 
